@@ -215,6 +215,10 @@ public class SearchResponse extends ActionResponse implements StatusToXContentOb
         return clusters;
     }
 
+    public SearchResponseSections internalResponse() {
+        return  internalResponse;
+    }
+
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
