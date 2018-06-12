@@ -93,7 +93,7 @@ public class TermsFetchRunner implements Callable<TermsFetchResult> {
             } finally {
                 searchContext.clearReleasables(SearchContext.Lifetime.COLLECTION);
             }
-            logger.info("lucene-terms took[{}] size[{}]", (System.currentTimeMillis() - start), termsCollector.terms().size());
+            logger.debug("terms took[{} ms] size[{}]", (System.currentTimeMillis() - start), termsCollector.terms().size());
             queryResult.terms(termsCollector.terms());
             return queryResult;
         } catch (Exception e) {
