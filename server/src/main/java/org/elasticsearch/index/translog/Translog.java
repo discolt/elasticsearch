@@ -55,13 +55,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -605,7 +599,10 @@ public class Translog extends AbstractIndexShardComponent implements IndexShardC
     public Snapshot newSnapshotFromMinSeqNo(long minSeqNo) throws IOException {
         try (ReleasableLock ignored = readLock.acquire()) {
             ensureOpen();
+            Comparator<TranslogSnapshot> comparator =
+                (a, b) -> a.getCheckpoint().minSeqNo == b.getCheckpoint().minSeqNo ? 0 : a.getCheckpoint().minSeqNo > b.getCheckpoint().minSeqNo ? -1 : 1;
             TranslogSnapshot[] snapshots = readersAboveMinSeqNo(minSeqNo).map(BaseTranslogReader::newSnapshot)
+                .sorted(comparator)
                 .toArray(TranslogSnapshot[]::new);
             return newMultiSnapshot(snapshots);
         }
