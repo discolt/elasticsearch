@@ -51,11 +51,12 @@ import java.util.function.Function;
 public final class IndexSettings {
     public static final String DEFAULT_FIELD_SETTING_KEY = "index.query.default_field";
     public static final Setting<List<String>> DEFAULT_FIELD_SETTING;
+
     static {
         Function<Settings, List<String>> defValue = settings -> {
             final String defaultField;
             if (settings.getAsVersion(IndexMetaData.SETTING_VERSION_CREATED, null) != null &&
-                    Version.indexCreated(settings).before(Version.V_6_0_0_alpha1)) {
+                Version.indexCreated(settings).before(Version.V_6_0_0_alpha1)) {
                 defaultField = AllFieldMapper.NAME;
             } else {
                 defaultField = "*";
@@ -64,6 +65,7 @@ public final class IndexSettings {
         };
         DEFAULT_FIELD_SETTING = Setting.listSetting(DEFAULT_FIELD_SETTING_KEY, defValue, Function.identity(), Property.IndexScope, Property.Dynamic);
     }
+
     public static final Setting<Boolean> QUERY_STRING_LENIENT_SETTING =
         Setting.boolSetting("index.query_string.lenient", false, Property.IndexScope);
     public static final Setting<Boolean> QUERY_STRING_ANALYZE_WILDCARD =
@@ -84,7 +86,7 @@ public final class IndexSettings {
     public static final Setting<Boolean> INDEX_TTL_DISABLE_PURGE_SETTING =
         Setting.boolSetting("index.ttl.disable_purge", false, Property.Dynamic, Property.IndexScope, Property.Deprecated);
     public static final Setting<String> INDEX_CHECK_ON_STARTUP = new Setting<>("index.shard.check_on_startup", "false", (s) -> {
-        switch(s) {
+        switch (s) {
             case "false":
             case "true":
             case "fix":
@@ -174,7 +176,14 @@ public final class IndexSettings {
      * because they both do the same thing: control the size of the heap of hits.
      */
     public static final Setting<Integer> MAX_RESCORE_WINDOW_SETTING =
-            Setting.intSetting("index.max_rescore_window", MAX_RESULT_WINDOW_SETTING, 1, Property.Dynamic, Property.IndexScope);
+        Setting.intSetting("index.max_rescore_window", MAX_RESULT_WINDOW_SETTING, 1, Property.Dynamic, Property.IndexScope);
+
+    /**
+     * Index setting to enable / disable xdcr (cross cluster data replication).
+     */
+    public static final Setting<Boolean> INDEX_XDCR_ENABLED_SETTING =
+        Setting.boolSetting("index.xdcr.enabled", false, Property.Dynamic, Property.IndexScope);
+
     /**
      * Index setting describing the maximum number of filters clauses that can be used
      * in an adjacency_matrix aggregation. The max number of buckets produced by
@@ -220,19 +229,19 @@ public final class IndexSettings {
      * translog operations that have not been flushed.
      */
     public static final Setting<ByteSizeValue> INDEX_TRANSLOG_GENERATION_THRESHOLD_SIZE_SETTING =
-            Setting.byteSizeSetting(
-                    "index.translog.generation_threshold_size",
-                    new ByteSizeValue(64, ByteSizeUnit.MB),
-                    /*
-                     * An empty translog occupies 55 bytes on disk. If the generation threshold is
-                     * below this, the flush thread can get stuck in an infinite loop repeatedly
-                     * rolling the generation as every new generation will already exceed the
-                     * generation threshold. However, small thresholds are useful for testing so we
-                     * do not add a large lower bound here.
-                     */
-                    new ByteSizeValue(Translog.DEFAULT_HEADER_SIZE_IN_BYTES + 1, ByteSizeUnit.BYTES),
-                    new ByteSizeValue(Long.MAX_VALUE, ByteSizeUnit.BYTES),
-                    Property.Dynamic, Property.IndexScope);
+        Setting.byteSizeSetting(
+            "index.translog.generation_threshold_size",
+            new ByteSizeValue(64, ByteSizeUnit.MB),
+            /*
+             * An empty translog occupies 55 bytes on disk. If the generation threshold is
+             * below this, the flush thread can get stuck in an infinite loop repeatedly
+             * rolling the generation as every new generation will already exceed the
+             * generation threshold. However, small thresholds are useful for testing so we
+             * do not add a large lower bound here.
+             */
+            new ByteSizeValue(Translog.DEFAULT_HEADER_SIZE_IN_BYTES + 1, ByteSizeUnit.BYTES),
+            new ByteSizeValue(Long.MAX_VALUE, ByteSizeUnit.BYTES),
+            Property.Dynamic, Property.IndexScope);
 
     /**
      * Index setting to enable / disable deletes garbage collection.
@@ -246,7 +255,7 @@ public final class IndexSettings {
      * The maximum number of refresh listeners allows on this shard.
      */
     public static final Setting<Integer> MAX_REFRESH_LISTENERS_PER_SHARD = Setting.intSetting("index.max_refresh_listeners", 1000, 0,
-            Property.Dynamic, Property.IndexScope);
+        Property.Dynamic, Property.IndexScope);
 
     /**
      * The maximum number of slices allowed in a scroll request
@@ -256,6 +265,7 @@ public final class IndexSettings {
 
     public static final String INDEX_MAPPING_SINGLE_TYPE_SETTING_KEY = "index.mapping.single_type";
     private static final Setting<Boolean> INDEX_MAPPING_SINGLE_TYPE_SETTING; // private - should not be registered
+
     static {
         Function<Settings, String> defValue = settings -> {
             boolean singleType = true;
@@ -267,6 +277,7 @@ public final class IndexSettings {
         INDEX_MAPPING_SINGLE_TYPE_SETTING = Setting.boolSetting(INDEX_MAPPING_SINGLE_TYPE_SETTING_KEY, defValue, Property.IndexScope,
             Property.Final);
     }
+
 
     private final Index index;
     private final Version version;
@@ -305,6 +316,7 @@ public final class IndexSettings {
     private volatile int maxShingleDiff;
     private volatile int maxAnalyzedOffset;
     private volatile int maxTermsCount;
+    private volatile boolean xdcrEnabled;
 
     /**
      * The maximum number of refresh listeners allows on this shard.
@@ -363,7 +375,7 @@ public final class IndexSettings {
      * while index level settings will overwrite node settings.
      *
      * @param indexMetaData the index metadata this settings object is associated with
-     * @param nodeSettings the nodes settings this index is allocated on.
+     * @param nodeSettings  the nodes settings this index is allocated on.
      */
     public IndexSettings(final IndexMetaData indexMetaData, final Settings nodeSettings) {
         this(indexMetaData, nodeSettings, IndexScopedSettings.DEFAULT_SCOPED_SETTINGS);
@@ -374,7 +386,7 @@ public final class IndexSettings {
      * while index level settings will overwrite node settings.
      *
      * @param indexMetaData the index metadata this settings object is associated with
-     * @param nodeSettings the nodes settings this index is allocated on.
+     * @param nodeSettings  the nodes settings this index is allocated on.
      */
     public IndexSettings(final IndexMetaData indexMetaData, final Settings nodeSettings, IndexScopedSettings indexScopedSettings) {
         scopedSettings = indexScopedSettings.copy(nodeSettings, indexMetaData);
@@ -414,11 +426,12 @@ public final class IndexSettings {
         maxSlicesPerScroll = scopedSettings.get(MAX_SLICES_PER_SCROLL);
         maxAnalyzedOffset = scopedSettings.get(MAX_ANALYZED_OFFSET_SETTING);
         maxTermsCount = scopedSettings.get(MAX_TERMS_COUNT_SETTING);
+        xdcrEnabled = scopedSettings.get(INDEX_XDCR_ENABLED_SETTING);
         this.mergePolicyConfig = new MergePolicyConfig(logger, this);
         this.indexSortConfig = new IndexSortConfig(this);
         singleType = INDEX_MAPPING_SINGLE_TYPE_SETTING.get(indexMetaData.getSettings()); // get this from metadata - it's not registered
         if ((singleType || version.before(Version.V_6_0_0_alpha1)) == false) {
-            throw new AssertionError(index.toString()  + "multiple types are only allowed on pre 6.x indices but version is: ["
+            throw new AssertionError(index.toString() + "multiple types are only allowed on pre 6.x indices but version is: ["
                 + version + "]");
         }
 
@@ -447,8 +460,8 @@ public final class IndexSettings {
         scopedSettings.addSettingsUpdateConsumer(INDEX_GC_DELETES_SETTING, this::setGCDeletes);
         scopedSettings.addSettingsUpdateConsumer(INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE_SETTING, this::setTranslogFlushThresholdSize);
         scopedSettings.addSettingsUpdateConsumer(
-                INDEX_TRANSLOG_GENERATION_THRESHOLD_SIZE_SETTING,
-                this::setGenerationThresholdSize);
+            INDEX_TRANSLOG_GENERATION_THRESHOLD_SIZE_SETTING,
+            this::setGenerationThresholdSize);
         scopedSettings.addSettingsUpdateConsumer(INDEX_TRANSLOG_RETENTION_AGE_SETTING, this::setTranslogRetentionAge);
         scopedSettings.addSettingsUpdateConsumer(INDEX_TRANSLOG_RETENTION_SIZE_SETTING, this::setTranslogRetentionSize);
         scopedSettings.addSettingsUpdateConsumer(INDEX_REFRESH_INTERVAL_SETTING, this::setRefreshInterval);
@@ -487,7 +500,9 @@ public final class IndexSettings {
      * Returns the settings for this index. These settings contain the node and index level settings where
      * settings that are specified on both index and node level are overwritten by the index settings.
      */
-    public Settings getSettings() { return settings; }
+    public Settings getSettings() {
+        return settings;
+    }
 
     /**
      * Returns the index this settings object belongs to
@@ -519,6 +534,7 @@ public final class IndexSettings {
 
     /**
      * Returns the version the index was created on.
+     *
      * @see Version#indexCreated(Settings)
      */
     public Version getIndexVersionCreated() {
@@ -542,17 +558,23 @@ public final class IndexSettings {
     /**
      * Returns the number of shards this index has.
      */
-    public int getNumberOfShards() { return numberOfShards; }
+    public int getNumberOfShards() {
+        return numberOfShards;
+    }
 
     /**
      * Returns the number of replicas this index has.
      */
-    public int getNumberOfReplicas() { return settings.getAsInt(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, null); }
+    public int getNumberOfReplicas() {
+        return settings.getAsInt(IndexMetaData.SETTING_NUMBER_OF_REPLICAS, null);
+    }
 
     /**
      * Returns whether the index enforces at most one type.
      */
-    public boolean isSingleType() { return singleType; }
+    public boolean isSingleType() {
+        return singleType;
+    }
 
     /**
      * Returns the node settings. The settings returned from {@link #getSettings()} are a merged version of the
@@ -628,17 +650,23 @@ public final class IndexSettings {
     /**
      * Returns the transaction log threshold size when to forcefully flush the index and clear the transaction log.
      */
-    public ByteSizeValue getFlushThresholdSize() { return flushThresholdSize; }
+    public ByteSizeValue getFlushThresholdSize() {
+        return flushThresholdSize;
+    }
 
     /**
      * Returns the transaction log retention size which controls how much of the translog is kept around to allow for ops based recoveries
      */
-    public ByteSizeValue getTranslogRetentionSize() { return translogRetentionSize; }
+    public ByteSizeValue getTranslogRetentionSize() {
+        return translogRetentionSize;
+    }
 
     /**
      * Returns the transaction log retention age which controls the maximum age (time from creation) that translog files will be kept around
      */
-    public TimeValue getTranslogRetentionAge() { return translogRetentionAge; }
+    public TimeValue getTranslogRetentionAge() {
+        return translogRetentionAge;
+    }
 
     /**
      * Returns the generation threshold size. As sequence numbers can cause multiple generations to
@@ -656,7 +684,9 @@ public final class IndexSettings {
     /**
      * Returns the {@link MergeSchedulerConfig}
      */
-    public MergeSchedulerConfig getMergeSchedulerConfig() { return mergeSchedulerConfig; }
+    public MergeSchedulerConfig getMergeSchedulerConfig() {
+        return mergeSchedulerConfig;
+    }
 
     /**
      * Returns the max result window for search requests, describing the maximum value of from + size on a query.
@@ -716,21 +746,31 @@ public final class IndexSettings {
     /**
      * Returns the maximum allowed difference between max and min length of ngram
      */
-    public int getMaxNgramDiff() { return this.maxNgramDiff; }
+    public int getMaxNgramDiff() {
+        return this.maxNgramDiff;
+    }
 
-    private void setMaxNgramDiff(int maxNgramDiff) { this.maxNgramDiff = maxNgramDiff; }
+    private void setMaxNgramDiff(int maxNgramDiff) {
+        this.maxNgramDiff = maxNgramDiff;
+    }
 
     /**
      * Returns the maximum allowed difference between max and min shingle_size
      */
-    public int getMaxShingleDiff() { return this.maxShingleDiff; }
+    public int getMaxShingleDiff() {
+        return this.maxShingleDiff;
+    }
 
-    private void setMaxShingleDiff(int maxShingleDiff) { this.maxShingleDiff = maxShingleDiff; }
+    private void setMaxShingleDiff(int maxShingleDiff) {
+        this.maxShingleDiff = maxShingleDiff;
+    }
 
     /**
-     *  Returns the maximum number of chars that will be analyzed in a highlight request
+     * Returns the maximum number of chars that will be analyzed in a highlight request
      */
-    public int getHighlightMaxAnalyzedOffset() { return this.maxAnalyzedOffset; }
+    public int getHighlightMaxAnalyzedOffset() {
+        return this.maxAnalyzedOffset;
+    }
 
     private void setHighlightMaxAnalyzedOffset(int maxAnalyzedOffset) {
         if (maxAnalyzedOffset < 1) {
@@ -741,11 +781,15 @@ public final class IndexSettings {
     }
 
     /**
-     *  Returns the maximum number of terms that can be used in a Terms Query request
+     * Returns the maximum number of terms that can be used in a Terms Query request
      */
-    public int getMaxTermsCount() { return this.maxTermsCount; }
+    public int getMaxTermsCount() {
+        return this.maxTermsCount;
+    }
 
-    private void setMaxTermsCount (int maxTermsCount) { this.maxTermsCount = maxTermsCount; }
+    private void setMaxTermsCount(int maxTermsCount) {
+        this.maxTermsCount = maxTermsCount;
+    }
 
     /**
      * Returns the maximum number of allowed script_fields to retrieve in a search request
@@ -805,5 +849,18 @@ public final class IndexSettings {
         return indexSortConfig;
     }
 
-    public IndexScopedSettings getScopedSettings() { return scopedSettings;}
+    /**
+     * Returns true if index warmers are enabled, otherwise <code>false</code>
+     */
+    public boolean isXdcrEnabled() {
+        return xdcrEnabled;
+    }
+
+    private void setEnableXdcr(boolean enableXdcr) {
+        this.xdcrEnabled = enableXdcr;
+    }
+
+    public IndexScopedSettings getScopedSettings() {
+        return scopedSettings;
+    }
 }
