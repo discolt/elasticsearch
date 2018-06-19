@@ -127,6 +127,7 @@ public final class IndexScopedSettings extends AbstractScopedSettings {
         IndexSettings.MAX_REFRESH_LISTENERS_PER_SHARD,
         IndexSettings.MAX_SLICES_PER_SCROLL,
         IndexSettings.MAX_REGEX_LENGTH_SETTING,
+        IndexSettings.INDEX_XDCR_ENABLED_SETTING,
         ShardsLimitAllocationDecider.INDEX_TOTAL_SHARDS_PER_NODE_SETTING,
         IndexSettings.INDEX_GC_DELETES_SETTING,
         IndicesRequestCache.INDEX_CACHE_REQUEST_ENABLED_SETTING,

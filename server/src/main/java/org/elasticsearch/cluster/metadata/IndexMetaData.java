@@ -236,6 +236,8 @@ public class IndexMetaData implements Diffable<IndexMetaData>, ToXContentFragmen
     public static final Setting<Boolean> INDEX_BLOCKS_READ_ONLY_ALLOW_DELETE_SETTING =
         Setting.boolSetting(SETTING_READ_ONLY_ALLOW_DELETE, false, Property.Dynamic, Property.IndexScope);
 
+    public static final String SETTING_XDCR_ENABLED = "index.xdcr.enabled";
+
     public static final String SETTING_VERSION_CREATED = "index.version.created";
     public static final String SETTING_VERSION_CREATED_STRING = "index.version.created_string";
     public static final String SETTING_VERSION_UPGRADED = "index.version.upgraded";
