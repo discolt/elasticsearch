@@ -381,8 +381,8 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                 if (indexSettingsBuilder.get(SETTING_XDCR_ENABLED) != null) {
                     boolean xdcrEnabled = request.settings().getAsBoolean(SETTING_XDCR_ENABLED, false);
                     if (xdcrEnabled) {
-                        indexSettingsBuilder.put("index.translog.retention.age", -1);
-                        indexSettingsBuilder.put("index.translog.retention.size", -1);
+                        indexSettingsBuilder.put("index.translog.retention.age", "87600h");
+                        indexSettingsBuilder.put("index.translog.retention.size", "1024tb");
                         indexSettingsBuilder.put("index.translog.generation_threshold_size", "256m");
                     }
                 }
