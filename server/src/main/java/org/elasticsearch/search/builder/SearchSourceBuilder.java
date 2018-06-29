@@ -296,7 +296,7 @@ public final class SearchSourceBuilder implements Writeable, ToXContentObject, R
         out.writeOptionalWriteable(searchAfterBuilder);
         out.writeOptionalWriteable(sliceBuilder);
         boolean hasJoins = joins != null;
-        out.writeBoolean(hasSorts);
+        out.writeBoolean(hasJoins);
         if (hasJoins) {
             out.writeVInt(joins.size());
             for (JoinBuilder join : joins) {
