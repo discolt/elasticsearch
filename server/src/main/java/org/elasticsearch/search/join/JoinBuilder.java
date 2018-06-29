@@ -23,6 +23,7 @@ import java.util.Objects;
 
 public class JoinBuilder implements Writeable, ToXContentObject, NamedWriteable {
 
+    public static final String NAME = "join";
     public static final ParseField INDICES_FIELD = new ParseField("indices");
     public static final ParseField KEYON_FIELD = new ParseField("field");
     public static final ParseField QUERY_FIELD = new ParseField("query");
