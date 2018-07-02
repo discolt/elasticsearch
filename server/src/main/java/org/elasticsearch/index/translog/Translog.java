@@ -599,10 +599,8 @@ public class Translog extends AbstractIndexShardComponent implements IndexShardC
     public Snapshot newSnapshotFromMinSeqNo(long minSeqNo) throws IOException {
         try (ReleasableLock ignored = readLock.acquire()) {
             ensureOpen();
-            Comparator<TranslogSnapshot> comparator =
-                (a, b) -> a.getCheckpoint().minSeqNo == b.getCheckpoint().minSeqNo ? 0 : a.getCheckpoint().minSeqNo > b.getCheckpoint().minSeqNo ? -1 : 1;
             TranslogSnapshot[] snapshots = readersAboveMinSeqNo(minSeqNo).map(BaseTranslogReader::newSnapshot)
-                .sorted(comparator)
+                .sorted((v1, v2) -> v1.generation > v2.generation ? -1 : v1.generation < v2.generation ? 1 : 0)
                 .toArray(TranslogSnapshot[]::new);
             return newMultiSnapshot(snapshots);
         }
