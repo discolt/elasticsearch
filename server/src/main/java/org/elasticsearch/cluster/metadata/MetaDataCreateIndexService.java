@@ -383,7 +383,6 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                     if (xdcrEnabled) {
                         indexSettingsBuilder.put("index.translog.retention.age", "87600h");
                         indexSettingsBuilder.put("index.translog.retention.size", "1024tb");
-                        indexSettingsBuilder.put("index.translog.generation_threshold_size", "256m");
                     }
                 }
 
