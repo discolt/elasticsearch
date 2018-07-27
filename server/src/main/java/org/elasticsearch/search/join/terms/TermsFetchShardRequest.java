@@ -35,10 +35,6 @@ import java.util.Objects;
 public class TermsFetchShardRequest extends BroadcastShardRequest {
 
     private TermsFetchRequest request;
-    private String[] types = Strings.EMPTY_ARRAY;
-    private String field;
-    private SearchSourceBuilder source;
-    private long nowInMillis;
     private AliasFilter filteringAliases;
 
     /**
@@ -50,10 +46,7 @@ public class TermsFetchShardRequest extends BroadcastShardRequest {
 
     public TermsFetchShardRequest(ShardId shardId, AliasFilter filteringAliases, TermsFetchRequest request) {
         super(shardId, request);
-        this.types = request.types();
-        this.field = request.field();
-        this.source = request.source();
-        this.nowInMillis = request.nowInMillis();
+        this.request = request;
         this.filteringAliases = Objects.requireNonNull(filteringAliases, "filteringAliases must not be null");
     }
 
@@ -62,19 +55,19 @@ public class TermsFetchShardRequest extends BroadcastShardRequest {
     }
 
     public String field() {
-        return field;
+        return request.field();
     }
 
     public String[] types() {
-        return types;
+        return request.types();
     }
 
     public SearchSourceBuilder source() {
-        return source;
+        return request.source();
     }
 
     public long nowInMillis() {
-        return nowInMillis;
+        return request.nowInMillis();
     }
 
     public AliasFilter filteringAliases() {

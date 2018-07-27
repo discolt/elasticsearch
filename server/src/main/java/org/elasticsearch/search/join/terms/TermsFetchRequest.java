@@ -227,15 +227,38 @@ public final class TermsFetchRequest extends BroadcastRequest<TermsFetchRequest>
     @Override
     public void readFrom(StreamInput in) throws IOException {
         super.readFrom(in);
-        routing = in.readOptionalString();
-        preference = in.readOptionalString();
-        source = in.readOptionalWriteable(SearchSourceBuilder::new);
-        types = in.readStringArray();
+
+        if (in.readBoolean()) {
+            routing = in.readOptionalString();
+        }
+
+        if (in.readBoolean()) {
+            preference = in.readOptionalString();
+        }
+
+        if (in.readBoolean()) {
+            source = in.readOptionalWriteable(SearchSourceBuilder::new);
+        }
+
+        if (in.readBoolean()) {
+            types = in.readStringArray();
+        }
+
         field = in.readString();
         nowInMillis = in.readVLong();
-        ordering = Ordering.values()[in.readVInt()];
-        maxTermsPerShard = in.readVInt();
-        expectedTerms = in.readVLong();
+
+        if (in.readBoolean()) {
+            ordering = Ordering.values()[in.readVInt()];
+        }
+
+        if (in.readBoolean()) {
+            maxTermsPerShard = in.readVInt();
+        }
+
+        if (in.readBoolean()) {
+            expectedTerms = in.readVLong();
+        }
+
     }
 
     /**
@@ -244,15 +267,58 @@ public final class TermsFetchRequest extends BroadcastRequest<TermsFetchRequest>
     @Override
     public void writeTo(StreamOutput out) throws IOException {
         super.writeTo(out);
-        out.writeOptionalString(routing);
-        out.writeOptionalString(preference);
-        out.writeOptionalWriteable(source);
-        out.writeStringArray(types);
-        out.writeOptionalString(field);
+
+        if (routing != null) {
+            out.writeBoolean(true);
+            out.writeOptionalString(routing);
+        } else {
+            out.writeBoolean(false);
+        }
+
+        if (preference != null) {
+            out.writeBoolean(true);
+            out.writeOptionalString(preference);
+        } else {
+            out.writeBoolean(false);
+        }
+
+        if (source != null) {
+            out.writeBoolean(true);
+            out.writeOptionalWriteable(source);
+        } else {
+            out.writeBoolean(false);
+        }
+
+        if (types == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeStringArray(types);
+        }
+
+        out.writeString(field);
         out.writeVLong(nowInMillis);
-        out.writeVInt(ordering.ordinal());
-        out.writeVInt(maxTermsPerShard);
-        out.writeVLong(expectedTerms);
+
+        if (ordering == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeVInt(ordering.ordinal());
+        }
+
+        if (maxTermsPerShard == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeVInt(maxTermsPerShard);
+        }
+
+        if (expectedTerms == null) {
+            out.writeBoolean(false);
+        } else {
+            out.writeBoolean(true);
+            out.writeVLong(expectedTerms);
+        }
     }
 
     /**
