@@ -609,6 +609,7 @@ public class Translog extends AbstractIndexShardComponent implements IndexShardC
         try (ReleasableLock ignored = readLock.acquire()) {
             ensureOpen();
             TranslogSnapshot[] snapshots = readersAboveMinSeqNo(minSeqNo).map(BaseTranslogReader::newSnapshot)
+                .sorted((v1, v2) -> v1.generation > v2.generation ? -1 : v1.generation < v2.generation ? 1 : 0)
                 .toArray(TranslogSnapshot[]::new);
             return newMultiSnapshot(snapshots);
         }
