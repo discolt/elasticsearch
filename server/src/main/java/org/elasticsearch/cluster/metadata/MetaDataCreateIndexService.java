@@ -390,7 +390,9 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                 }
                 // xdcr setting here
                 if (indexSettingsBuilder.get(SETTING_XDCR_ENABLED) != null) {
-                    boolean xdcrEnabled = request.settings().getAsBoolean(SETTING_XDCR_ENABLED, false);
+                    boolean xdcrEnabled =
+                        request.settings().getAsBoolean(SETTING_XDCR_ENABLED, false) ||
+                        indexSettingsBuilder.build().getAsBoolean(SETTING_XDCR_ENABLED, false);
                     if (xdcrEnabled) {
                         indexSettingsBuilder.put("index.translog.retention.age", -1);
                         indexSettingsBuilder.put("index.translog.retention.size", -1);
