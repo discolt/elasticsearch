@@ -120,8 +120,8 @@ public class QueryShardContext extends QueryRewriteContext {
 
     public QueryShardContext(QueryShardContext source) {
         this(source.shardId, source.indexSettings, source.bitsetFilterCache, source.indexFieldDataService, source.mapperService,
-                source.similarityService, source.scriptService, source.getXContentRegistry(), source.getWriteableRegistry(),
-                source.client, source.reader, source.nowInMillis, source.clusterAlias);
+            source.similarityService, source.scriptService, source.getXContentRegistry(), source.getWriteableRegistry(),
+            source.client, source.reader, source.nowInMillis, source.clusterAlias);
         this.types = source.getTypes();
     }
 
@@ -139,10 +139,6 @@ public class QueryShardContext extends QueryRewriteContext {
 
     public Similarity getSearchSimilarity() {
         return similarityService != null ? similarityService.similarity(mapperService) : null;
-    }
-
-    public SimilarityService similarityService() {
-        return similarityService;
     }
 
     public List<String> defaultFields() {
@@ -422,6 +418,10 @@ public class QueryShardContext extends QueryRewriteContext {
      */
     public MapperService getMapperService() {
         return mapperService;
+    }
+
+    public  SimilarityService getSimilarityService() {
+        return similarityService;
     }
 
     /** Return the current {@link IndexReader}, or {@code null} if no index reader is available,
