@@ -237,7 +237,6 @@ public final class SimilarityService extends AbstractIndexComponent {
             return groupedStat;
         }
 
-        // 计算分数 TODO:  explain 列出所有的算子。
         @Override
         public SimScorer simScorer(SimWeight weight, LeafReaderContext context) throws IOException {
             if (simBoosts.size() == 1) {
