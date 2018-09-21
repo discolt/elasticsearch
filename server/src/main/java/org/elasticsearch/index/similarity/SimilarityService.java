@@ -196,8 +196,10 @@ public final class SimilarityService extends AbstractIndexComponent {
 
         private Map<Similarity, Float> simBoosts = new LinkedHashMap<>();
         private boolean discountOverlaps = true;
+        private String simline;
 
         public CombinedSimilarity(String line) {
+            this.simline = line;
             String[] sims = line.split(",(\\s+)?");
             for (String block : sims) {
                 String sim;
@@ -275,14 +277,19 @@ public final class SimilarityService extends AbstractIndexComponent {
                         float subScore = simScorer.score(docID, freq.getValue()) * simWeightBoost.boost;
                         subExplanations.add(
                             Explanation.match(
-                                subScore, "sub score", simScorer.explain(docID, freq),
-                                Explanation.match(simWeightBoost.boost, "sub similarity boost"))
+                                subScore, "score", simScorer.explain(docID, freq),
+                                Explanation.match(simWeightBoost.boost, "boost"))
                         );
                     }
                     float score = score(docID, freq.getValue());
-                    return Explanation.match(score, "total score from " + this.toString() + " computed from:", subExplanations);
+                    return Explanation.match(score, "score(CombinedSimilarity:" + simline + "), computed from:", subExplanations);
                 }
             };
+        }
+
+        @Override
+        public String toString() {
+            return simline;
         }
 
         private class GroupedStat extends SimWeight {

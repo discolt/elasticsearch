@@ -407,7 +407,7 @@ public class QueryShardContext extends QueryRewriteContext {
 
     /**
      * Returns the index settings for this context. This might return null if the
-     * context has not index scope.
+     * context has not index scope.B
      */
     public IndexSettings getIndexSettings() {
         return indexSettings;
