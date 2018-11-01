@@ -76,7 +76,8 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Constructor.
-     * @param settings Node settings
+     *
+     * @param settings              Node settings
      * @param reduceContextFunction A function that builds a context for the reduce of an {@link InternalAggregation}
      */
     public SearchPhaseController(Settings settings, Function<Boolean, ReduceContext> reduceContextFunction) {
@@ -100,8 +101,8 @@ public final class SearchPhaseController extends AbstractComponent {
                     // totalTermFrequency is an optional statistic we need to check if either one or both
                     // are set to -1 which means not present and then set it globally to -1
                     termStatistics.put(terms[i], new TermStatistics(existing.term(),
-                            existing.docFreq() + stats[i].docFreq(),
-                            optionalSum(existing.totalTermFreq(), stats[i].totalTermFreq())));
+                        existing.docFreq() + stats[i].docFreq(),
+                        optionalSum(existing.totalTermFreq(), stats[i].totalTermFreq())));
                 } else {
                     termStatistics.put(terms[i], stats[i]);
                 }
@@ -119,10 +120,10 @@ public final class SearchPhaseController extends AbstractComponent {
                     CollectionStatistics existing = fieldStatistics.get(key);
                     if (existing != null) {
                         CollectionStatistics merged = new CollectionStatistics(
-                                key, existing.maxDoc() + value.maxDoc(),
-                                optionalSum(existing.docCount(), value.docCount()),
-                                optionalSum(existing.sumTotalTermFreq(), value.sumTotalTermFreq()),
-                                optionalSum(existing.sumDocFreq(), value.sumDocFreq())
+                            key, existing.maxDoc() + value.maxDoc(),
+                            optionalSum(existing.docCount(), value.docCount()),
+                            optionalSum(existing.sumTotalTermFreq(), value.sumTotalTermFreq()),
+                            optionalSum(existing.sumDocFreq(), value.sumDocFreq())
                         );
                         fieldStatistics.put(key, merged);
                     } else {
@@ -143,20 +144,20 @@ public final class SearchPhaseController extends AbstractComponent {
      * Returns a score doc array of top N search docs across all shards, followed by top suggest docs for each
      * named completion suggestion across all shards. If more than one named completion suggestion is specified in the
      * request, the suggest docs for a named suggestion are ordered by the suggestion name.
-     *
+     * <p>
      * Note: The order of the sorted score docs depends on the shard index in the result array if the merge process needs to disambiguate
      * the result. In oder to obtain stable results the shard index (index of the result in the result array) must be the same.
      *
-     * @param ignoreFrom Whether to ignore the from and sort all hits in each shard result.
-     *                   Enabled only for scroll search, because that only retrieves hits of length 'size' in the query phase.
-     * @param results the search phase results to obtain the sort docs from
+     * @param ignoreFrom      Whether to ignore the from and sort all hits in each shard result.
+     *                        Enabled only for scroll search, because that only retrieves hits of length 'size' in the query phase.
+     * @param results         the search phase results to obtain the sort docs from
      * @param bufferedTopDocs the pre-consumed buffered top docs
-     * @param topDocsStats the top docs stats to fill
-     * @param from the offset into the search results top docs
-     * @param size the number of hits to return from the merged top docs
+     * @param topDocsStats    the top docs stats to fill
+     * @param from            the offset into the search results top docs
+     * @param size            the number of hits to return from the merged top docs
      */
     public SortedTopDocs sortDocs(boolean ignoreFrom, Collection<? extends SearchPhaseResult> results,
-                               final Collection<TopDocs> bufferedTopDocs, final TopDocsStats topDocsStats, int from, int size) {
+                                  final Collection<TopDocs> bufferedTopDocs, final TopDocsStats topDocsStats, int from, int size) {
         if (results.isEmpty()) {
             return SortedTopDocs.EMPTY;
         }
@@ -253,7 +254,9 @@ public final class SearchPhaseController extends AbstractComponent {
             mergedTopDocs = TopDocs.merge(sort, from, topN, shardTopDocs, setShardIndex);
         } else {
             final TopDocs[] shardTopDocs = results.toArray(new TopDocs[numShards]);
-            mergedTopDocs = TopDocs.merge(from, topN, shardTopDocs, setShardIndex);
+            // mergedTopDocs = TopDocs.merge(from, topN, shardTopDocs, setShardIndex);
+            // add position rule operator
+            mergedTopDocs = merge(from, topN, shardTopDocs, setShardIndex);
         }
         return mergedTopDocs;
     }
@@ -304,7 +307,7 @@ public final class SearchPhaseController extends AbstractComponent {
     /**
      * Enriches search hits and completion suggestion hits from <code>sortedDocs</code> using <code>fetchResultsArr</code>,
      * merges suggestions, aggregations and profile results
-     *
+     * <p>
      * Expects sortedDocs to have top search docs across all shards, optionally followed by top suggest docs for each named
      * completion suggestion ordered by suggestion name
      */
@@ -405,6 +408,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Reduces the given query results and consumes all aggregations and profile results.
+     *
      * @param queryResults a list of non-null query shard results
      */
     public ReducedQueryPhase reducedQueryPhase(Collection<? extends SearchPhaseResult> queryResults, boolean isScrollRequest) {
@@ -413,6 +417,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Reduces the given query results and consumes all aggregations and profile results.
+     *
      * @param queryResults a list of non-null query shard results
      */
     public ReducedQueryPhase reducedQueryPhase(Collection<? extends SearchPhaseResult> queryResults, boolean isScrollRequest, boolean trackTotalHits) {
@@ -422,11 +427,12 @@ public final class SearchPhaseController extends AbstractComponent {
 
     /**
      * Reduces the given query results and consumes all aggregations and profile results.
-     * @param queryResults a list of non-null query shard results
-     * @param bufferedAggs a list of pre-collected / buffered aggregations. if this list is non-null all aggregations have been consumed
-     *                    from all non-null query results.
+     *
+     * @param queryResults    a list of non-null query shard results
+     * @param bufferedAggs    a list of pre-collected / buffered aggregations. if this list is non-null all aggregations have been consumed
+     *                        from all non-null query results.
      * @param bufferedTopDocs a list of pre-collected / buffered top docs. if this list is non-null all top docs have been consumed
-     *                    from all non-null query results.
+     *                        from all non-null query results.
      * @param numReducePhases the number of non-final reduce phases applied to the query results.
      * @see QuerySearchResult#consumeAggs()
      * @see QuerySearchResult#consumeProfileResult()
@@ -601,6 +607,7 @@ public final class SearchPhaseController extends AbstractComponent {
 
         /**
          * Creates a new search response from the given merged hits.
+         *
          * @see #merge(boolean, ReducedQueryPhase, Collection, IntFunction)
          */
         public InternalSearchResponse buildResponse(SearchHits hits) {
@@ -627,10 +634,11 @@ public final class SearchPhaseController extends AbstractComponent {
 
         /**
          * Creates a new {@link QueryPhaseResultConsumer}
-         * @param controller a controller instance to reduce the query response objects
+         *
+         * @param controller         a controller instance to reduce the query response objects
          * @param expectedResultSize the expected number of query results. Corresponds to the number of shards queried
-         * @param bufferSize the size of the reduce buffer. if the buffer size is smaller than the number of expected results
-         *                   the buffer is used to incrementally reduce aggregation results before all shards responded.
+         * @param bufferSize         the size of the reduce buffer. if the buffer size is smaller than the number of expected results
+         *                           the buffer is used to incrementally reduce aggregation results before all shards responded.
          */
         private QueryPhaseResultConsumer(SearchPhaseController controller, int expectedResultSize, int bufferSize,
                                          boolean hasTopDocs, boolean hasAggs) {
@@ -712,7 +720,9 @@ public final class SearchPhaseController extends AbstractComponent {
             return index;
         }
 
-        int getNumReducePhases() { return numReducePhases; }
+        int getNumReducePhases() {
+            return numReducePhases;
+        }
     }
 
     /**
@@ -778,4 +788,68 @@ public final class SearchPhaseController extends AbstractComponent {
             this.sortFields = sortFields;
         }
     }
+
+    static final class DeciTopDocs {
+
+        TopDocs merge(int start, int topN, TopDocs[] shardHits, boolean setShardIndex) {
+            boolean handled = false;
+            for (TopDocs topDocs : shardHits) {
+                handled = handled || topDocs.scoreDocs[0].score > 10000;
+            }
+            if (!handled) {
+                return TopDocs.merge(start, topN, shardHits, setShardIndex);
+            } else {
+                return null;
+            }
+        }
+    }
+
+    public static TopDocs merge(int start, int topN, TopDocs[] shardHits, boolean setShardIndex) {
+        // 位置分阈值threshold
+        int POSITION_THRESHOLD = 10000;
+        boolean hasPositionHits = false;
+        for (TopDocs topDocs : shardHits) {
+            hasPositionHits = hasPositionHits || topDocs.scoreDocs[0].score > POSITION_THRESHOLD;
+        }
+        if (!hasPositionHits) {
+            return TopDocs.merge(start, topN, shardHits, setShardIndex);
+        }
+
+        // 找到原始最大值位置
+        int startPos = 0;
+        for (TopDocs tops : shardHits) {
+            for (int i = 0; i < tops.scoreDocs.length; i++) {
+                if (tops.scoreDocs[i].score > POSITION_THRESHOLD) {
+                    startPos++;
+                } else {
+                    break;
+                }
+            }
+        }
+        TopDocs top = TopDocs.merge(0, start + topN + startPos, shardHits, setShardIndex);
+        ScoreDoc[] scores = top.scoreDocs;
+        final ScoreDoc[] hits;
+        if (start > scores.length) {
+            hits = new ScoreDoc[0];
+        } else {
+            hits = new ScoreDoc[Math.min(topN, scores.length - start + 1)];
+            int i = startPos, j = startPos - 1, posHits = 0, pos = 0;
+            while (j >= 0 || i < scores.length) {
+                // 如果当前位置就是固定位置，或者其他数据已经命中完，就使用固定位置数据
+                if (j >= 0 && ((int) (scores[j].score) / POSITION_THRESHOLD == pos + 1 || i >= scores.length)) {
+                    pos++;
+                    posHits = j--;
+                } else if (i < scores.length) {
+                    pos++;
+                    posHits = i++;
+                }
+                if (pos - 1 >= start && pos - 1 < start + topN) {
+                    hits[pos - 1 - start] = scores[posHits];
+                }
+            }
+        }
+        return new TopDocs(top.totalHits, hits, top.getMaxScore());
+    }
+
+
 }
