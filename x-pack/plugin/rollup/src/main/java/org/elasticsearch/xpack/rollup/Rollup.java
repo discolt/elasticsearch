@@ -14,10 +14,7 @@ import org.elasticsearch.cluster.node.DiscoveryNodes;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.IndexScopedSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.SettingsFilter;
+import org.elasticsearch.common.settings.*;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
@@ -94,15 +91,15 @@ public class Rollup extends Plugin implements ActionPlugin, PersistentTaskPlugin
     public static final String MAPPING_METADATA_PLACEHOLDER = "\"ROLLUP_METADATA_PLACEHOLDER\":\"ROLLUP_METADATA_PLACEHOLDER\"";
     public static final String ROLLUP_TEMPLATE_VERSION_FIELD = "rollup-version";
     public static final String ROLLUP_TEMPLATE_VERSION_PATTERN =
-            Pattern.quote("${rollup.dynamic_template.version}");
+        Pattern.quote("${rollup.dynamic_template.version}");
 
     private static final String ROLLUP_TEMPLATE_NAME = "/rollup-dynamic-template.json";
     public static final String DYNAMIC_MAPPING_TEMPLATE = TemplateUtils.loadTemplate(ROLLUP_TEMPLATE_NAME,
-            Version.CURRENT.toString(), Rollup.ROLLUP_TEMPLATE_VERSION_PATTERN);
+        Version.CURRENT.toString(), Rollup.ROLLUP_TEMPLATE_VERSION_PATTERN);
 
     // list of headers that will be stored when a job is created
     public static final Set<String> HEADER_FILTERS =
-            new HashSet<>(Arrays.asList("es-security-runas-user", "_xpack_security_authentication"));
+        new HashSet<>(Arrays.asList("es-security-runas-user", "_xpack_security_authentication"));
 
 
     private final Settings settings;
@@ -134,7 +131,9 @@ public class Rollup extends Plugin implements ActionPlugin, PersistentTaskPlugin
         return modules;
     }
 
-    protected XPackLicenseState getLicenseState() { return XPackPlugin.getSharedLicenseState(); }
+    protected XPackLicenseState getLicenseState() {
+        return XPackPlugin.getSharedLicenseState();
+    }
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
@@ -182,7 +181,7 @@ public class Rollup extends Plugin implements ActionPlugin, PersistentTaskPlugin
         }
 
         FixedExecutorBuilder indexing = new FixedExecutorBuilder(settings, Rollup.TASK_THREAD_POOL_NAME,
-                4, 4, "xpack.rollup.task_thread_pool");
+            4, 4, "xpack.rollup.task_thread_pool");
 
         return Collections.singletonList(indexing);
     }
@@ -190,7 +189,7 @@ public class Rollup extends Plugin implements ActionPlugin, PersistentTaskPlugin
     @Override
     public List<PersistentTasksExecutor<?>> getPersistentTasksExecutor(ClusterService clusterService,
                                                                        ThreadPool threadPool, Client client) {
-        if (enabled == false || transportClientMode ) {
+        if (enabled == false || transportClientMode) {
             return emptyList();
         }
 
@@ -202,4 +201,21 @@ public class Rollup extends Plugin implements ActionPlugin, PersistentTaskPlugin
     protected Clock getClock() {
         return Clock.systemUTC();
     }
+
+    @Override
+    public List<Setting<?>> getSettings() {
+        return Collections.singletonList(ROLLUP_CONSOLE_HOST);
+    }
+
+    public static final Setting<String> ROLLUP_CONSOLE_HOST =
+        Setting.simpleString("xpack.rollup.console.host", "",
+            Setting.Property.Dynamic, Setting.Property.NodeScope);
+
+    public static final Setting<String> ROLLUP_CONSOLE_USERNAME =
+        Setting.simpleString("xpack.rollup.console.username", "zsearch",
+            Setting.Property.Dynamic, Setting.Property.NodeScope);
+
+    public static final Setting<String> ROLLUP_CONSOLE_PASSWORD =
+        Setting.simpleString("xpack.rollup.console.password", "nimda",
+            Setting.Property.Dynamic, Setting.Property.NodeScope);
 }

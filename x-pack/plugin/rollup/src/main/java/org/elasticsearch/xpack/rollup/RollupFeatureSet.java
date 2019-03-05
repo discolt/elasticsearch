@@ -19,6 +19,9 @@ import java.util.Map;
 
 public class RollupFeatureSet implements XPackFeatureSet {
 
+    public static String CONSOLE_HOST;
+    public static String CONSOLE_USERNAME;
+    public static String CONSOLE_PASSWORD;
     private final boolean enabled;
     private final XPackLicenseState licenseState;
 
@@ -26,6 +29,9 @@ public class RollupFeatureSet implements XPackFeatureSet {
     public RollupFeatureSet(Settings settings, @Nullable XPackLicenseState licenseState) {
         this.enabled = XPackSettings.ROLLUP_ENABLED.get(settings);
         this.licenseState = licenseState;
+        CONSOLE_HOST = Rollup.ROLLUP_CONSOLE_HOST.get(settings);
+        CONSOLE_USERNAME = Rollup.ROLLUP_CONSOLE_USERNAME.get(settings);
+        CONSOLE_PASSWORD = Rollup.ROLLUP_CONSOLE_PASSWORD.get(settings);
     }
 
     @Override
@@ -48,6 +54,10 @@ public class RollupFeatureSet implements XPackFeatureSet {
         return enabled;
     }
 
+    public String consoleUri() {
+        return CONSOLE_HOST;
+    }
+
     @Override
     public Map<String, Object> nativeCodeInfo() {
         return null;
@@ -58,4 +68,6 @@ public class RollupFeatureSet implements XPackFeatureSet {
         // TODO expose the currently running rollup tasks on this node?  Unclear the best way to do that
         listener.onResponse(new RollupFeatureSetUsage(available(), enabled()));
     }
+
+
 }

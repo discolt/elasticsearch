@@ -15,6 +15,8 @@ compileTestJava.options.compilerArgs << "-Xlint:-rawtypes"
 
 dependencies {
     compileOnly "org.elasticsearch:elasticsearch:${version}"
+    compile "org.elasticsearch.client:elasticsearch-rest-client:${version}"
+    compile "org.elasticsearch.client:elasticsearch-rest-client-sniffer:${version}"
 
     compileOnly project(path: xpackModule('core'), configuration: 'shadow')
     testCompile project(path: xpackModule('core'), configuration: 'testArtifacts')
