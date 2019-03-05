@@ -111,7 +111,9 @@ class IndexerUtils {
                     throw new RuntimeException("Encountered value of type ["
                         + v.getClass() + "], which was unable to be processed.");
                 }
-                AppDocRewriter.rewrite(doc, k, v);
+                if (AppDocRewriter.enabled()) {
+                    AppDocRewriter.rewrite(doc, k, v);
+                }
             } else {
                 throw new ElasticsearchException("Could not identify key in agg [" + k + "]");
             }

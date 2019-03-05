@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 public class AppDocRewriter {
 
@@ -34,7 +35,6 @@ public class AppDocRewriter {
         if (_client != null) {
             return _client;
         }
-
         RestClientBuilder builder = RestClient.builder(new HttpHost(HttpHost.create(RollupFeatureSet.CONSOLE_HOST)))
             .setHttpClientConfigCallback(httpClientBuilder -> {
                 final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
@@ -43,6 +43,10 @@ public class AppDocRewriter {
             });
         _client = builder.build();
         return _client;
+    }
+
+    public static boolean enabled() {
+        return !hasEmpty(RollupFeatureSet.CONSOLE_HOST);
     }
 
     @SuppressWarnings("unchecked")
@@ -145,7 +149,7 @@ public class AppDocRewriter {
                     return;
                 }
                 Map<String, String> accountData = getAccount(appName);
-                if (accountData.size() != 2 ) {
+                if (accountData.size() != 2) {
                     return;
                 }
                 String accountId = accountData.get(FIELD_ACCOUNT_ID);
@@ -174,17 +178,13 @@ public class AppDocRewriter {
         return index.matches(regex);
     }
 
+    private static String APPNAME_PATTERN = "^[a-z][a-zA-Z0-9_]{2,80}";
+
     private static boolean filterAppname(String appname) {
         if (appname == null || appname.trim().length() == 0) {
             return false;
         }
-        if (appname.startsWith(".") || appname.startsWith("console")) {
-            return false;
-        }
-        if (appname.startsWith("Invalid")) {
-            return false;
-        }
-        return true;
+        return Pattern.matches(APPNAME_PATTERN, appname);
     }
 
     private static void assetNotNull(Object object, String msg) {

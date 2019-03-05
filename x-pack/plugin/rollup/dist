@@ -1,2 +1,2 @@
-gradle jar
+gradle clean jar
 cp build/distributions/x-pack-rollup-6.4.0.jar /Users/discolt/elastic/release/6.4.0/multi_circle/monitor/modules/x-pack-rollup/
