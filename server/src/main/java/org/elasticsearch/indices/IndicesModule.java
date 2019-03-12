@@ -196,7 +196,7 @@ public class IndicesModule extends AbstractModule {
                     throw new IllegalArgumentException("Plugin cannot contain metadata mapper [" + FieldNamesFieldMapper.NAME + "]");
                 }
                 if (metadataMappers.put(entry.getKey(), entry.getValue()) != null) {
-                    throw new IllegalArgumentException("MetadataFieldMapper [" + entry.getKey() + "] is already registered");
+                    //throw new IllegalArgumentException("MetadataFieldMapper [" + entry.getKey() + "] is already registered");
                 }
             }
         }
