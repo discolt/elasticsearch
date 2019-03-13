@@ -185,6 +185,12 @@ public final class IndexSettings {
         Setting.boolSetting("index.xdcr.enabled", false, Property.Dynamic, Property.IndexScope);
 
     /**
+     * Index Tenant
+     */
+    public static final Setting<String> INDEX_TENANT_SETTING =
+        Setting.simpleString("index.tenant", Property.Final, Property.IndexScope);
+
+    /**
      * Index setting describing the maximum number of filters clauses that can be used
      * in an adjacency_matrix aggregation. The max number of buckets produced by
      * N filters is (N*N)/2 so a limit of 100 filters is imposed by default.

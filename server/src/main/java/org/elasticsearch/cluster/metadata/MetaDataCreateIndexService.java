@@ -224,18 +224,18 @@ public class MetaDataCreateIndexService extends AbstractComponent {
         indexScopedSettings.validate(build, true); // we do validate here - index setting must be consistent
         request.settings(build);
         clusterService.submitStateUpdateTask(
-                "create-index [" + request.index() + "], cause [" + request.cause() + "]",
-                new IndexCreationTask(
-                        logger,
-                        allocationService,
-                        request,
-                        listener,
-                        indicesService,
-                        aliasValidator,
-                        xContentRegistry,
-                        settings,
-                        this::validate,
-                        indexScopedSettings));
+            "create-index [" + request.index() + "], cause [" + request.cause() + "]",
+            new IndexCreationTask(
+                logger,
+                allocationService,
+                request,
+                listener,
+                indicesService,
+                aliasValidator,
+                xContentRegistry,
+                settings,
+                this::validate,
+                indexScopedSettings));
     }
 
     interface IndexValidator {
@@ -290,7 +290,7 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                 // we only find a template when its an API call (a new index)
                 // find templates, highest order are better matching
                 List<IndexTemplateMetaData> templates =
-                        MetaDataIndexTemplateService.findTemplates(currentState.metaData(), request.index());
+                    MetaDataIndexTemplateService.findTemplates(currentState.metaData(), request.index());
 
                 Map<String, Custom> customs = new HashMap<>();
 
@@ -352,7 +352,10 @@ public class MetaDataCreateIndexService extends AbstractComponent {
 
                             //Allow templatesAliases to be templated by replacing a token with the name of the index that we are applying it to
                             if (aliasMetaData.alias().contains("{index}")) {
-                                String templatedAlias = aliasMetaData.alias().replace("{index}", request.index());
+                                String tenant = request.settings().get("index.tenant");
+                                String templatedAlias = tenant == null ?
+                                    aliasMetaData.alias().replace("{index}", request.index()):
+                                    aliasMetaData.alias().replace("{index}", request.index().substring(tenant.length()+1));
                                 aliasMetaData = AliasMetaData.newAliasMetaData(aliasMetaData, templatedAlias);
                             }
 
@@ -372,8 +375,8 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                 indexSettingsBuilder.put(request.settings());
                 if (indexSettingsBuilder.get(SETTING_NUMBER_OF_SHARDS) == null) {
                     deprecationLogger.deprecated("the default number of shards will change from [5] to [1] in 7.0.0; "
-                            + "if you wish to continue using the default of [5] shards, "
-                            + "you must manage this on the create index request or with an index template");
+                        + "if you wish to continue using the default of [5] shards, "
+                        + "you must manage this on the create index request or with an index template");
                     indexSettingsBuilder.put(SETTING_NUMBER_OF_SHARDS, settings.getAsInt(SETTING_NUMBER_OF_SHARDS, 5));
                 }
                 if (indexSettingsBuilder.get(SETTING_NUMBER_OF_REPLICAS) == null) {
@@ -392,7 +395,7 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                 if (indexSettingsBuilder.get(SETTING_XDCR_ENABLED) != null) {
                     boolean xdcrEnabled =
                         request.settings().getAsBoolean(SETTING_XDCR_ENABLED, false) ||
-                        indexSettingsBuilder.build().getAsBoolean(SETTING_XDCR_ENABLED, false);
+                            indexSettingsBuilder.build().getAsBoolean(SETTING_XDCR_ENABLED, false);
                     if (xdcrEnabled) {
                         indexSettingsBuilder.put("index.translog.retention.age", "87600h");
                         indexSettingsBuilder.put("index.translog.retention.size", "1024tb");
@@ -423,14 +426,14 @@ public class MetaDataCreateIndexService extends AbstractComponent {
                 if (recoverFromIndex != null) {
                     assert request.resizeType() != null;
                     prepareResizeIndexSettings(
-                            currentState,
-                            mappings.keySet(),
-                            indexSettingsBuilder,
-                            recoverFromIndex,
-                            request.index(),
-                            request.resizeType(),
-                            request.copySettings(),
-                            indexScopedSettings);
+                        currentState,
+                        mappings.keySet(),
+                        indexSettingsBuilder,
+                        recoverFromIndex,
+                        request.index(),
+                        request.resizeType(),
+                        request.copySettings(),
+                        indexScopedSettings);
                 }
                 final Settings actualIndexSettings = indexSettingsBuilder.build();
                 tmpImdBuilder.settings(actualIndexSettings);
@@ -702,14 +705,14 @@ public class MetaDataCreateIndexService extends AbstractComponent {
     }
 
     static void prepareResizeIndexSettings(
-            final ClusterState currentState,
-            final Set<String> mappingKeys,
-            final Settings.Builder indexSettingsBuilder,
-            final Index resizeSourceIndex,
-            final String resizeIntoName,
-            final ResizeType type,
-            final boolean copySettings,
-            final IndexScopedSettings indexScopedSettings) {
+        final ClusterState currentState,
+        final Set<String> mappingKeys,
+        final Settings.Builder indexSettingsBuilder,
+        final Index resizeSourceIndex,
+        final String resizeIntoName,
+        final ResizeType type,
+        final boolean copySettings,
+        final IndexScopedSettings indexScopedSettings) {
         final IndexMetaData sourceMetaData = currentState.metaData().index(resizeSourceIndex.getName());
         if (type == ResizeType.SHRINK) {
             final List<String> nodesToAllocateOn = validateShrinkIndex(currentState, resizeSourceIndex.getName(),
@@ -748,12 +751,12 @@ public class MetaDataCreateIndexService extends AbstractComponent {
             }
         } else {
             final Predicate<String> sourceSettingsPredicate =
-                    (s) -> (
-                            s.startsWith("index.similarity.")
-                                    || s.startsWith("index.analysis.")
-                                    || s.startsWith("index.sort.")
-                                    || s.equals("index.mapping.single_type"))
-                            && indexSettingsBuilder.keys().contains(s) == false;
+                (s) -> (
+                    s.startsWith("index.similarity.")
+                        || s.startsWith("index.analysis.")
+                        || s.startsWith("index.sort.")
+                        || s.equals("index.mapping.single_type"))
+                    && indexSettingsBuilder.keys().contains(s) == false;
             builder.put(sourceMetaData.getSettings().filter(sourceSettingsPredicate));
         }
 
