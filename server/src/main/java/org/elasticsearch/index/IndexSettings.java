@@ -307,6 +307,12 @@ public final class IndexSettings {
     public static final Setting<Boolean> INDEX_SEARCH_THROTTLED = Setting.boolSetting("index.search.throttled", false,
         Property.IndexScope, Property.PrivateIndex, Property.Dynamic);
 
+    /**
+     * Index Tenant
+     */
+    public static final Setting<String> INDEX_TENANT_SETTING =
+        Setting.simpleString("index.tenant", Property.Final, Property.IndexScope);
+
     private final Index index;
     private final Version version;
     private final Logger logger;
