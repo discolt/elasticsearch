@@ -463,7 +463,7 @@ public class IngestService implements ClusterStateApplier {
         // (e.g. the pipeline may have been removed while we're ingesting a document
         try {
             totalMetrics.preIngest();
-            String tenant = pipeline.getId().contains(".") ? pipeline.getId().substring(0, pipeline.getId().indexOf(".")) : null;
+            String tenant = this.threadPool.getThreadContext().getTransient("__AppName");
             String index = tenant == null ? indexRequest.index() : indexRequest.index().substring(tenant.length() + 1);
             String type = indexRequest.type();
             String id = indexRequest.id();
