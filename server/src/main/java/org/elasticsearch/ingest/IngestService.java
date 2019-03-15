@@ -99,7 +99,7 @@ public class IngestService implements ClusterStateApplier {
     }
 
     private static Map<String, Processor.Factory> processorFactories(List<IngestPlugin> ingestPlugins,
-        Processor.Parameters parameters) {
+                                                                     Processor.Parameters parameters) {
         Map<String, Processor.Factory> processorFactories = new HashMap<>();
         for (IngestPlugin ingestPlugin : ingestPlugins) {
             Map<String, Processor.Factory> newProcessors = ingestPlugin.getProcessors(parameters);
@@ -125,18 +125,18 @@ public class IngestService implements ClusterStateApplier {
      */
     public void delete(DeletePipelineRequest request, ActionListener<AcknowledgedResponse> listener) {
         clusterService.submitStateUpdateTask("delete-pipeline-" + request.getId(),
-                new AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
+            new AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
 
-            @Override
-            protected AcknowledgedResponse newResponse(boolean acknowledged) {
-                return new AcknowledgedResponse(acknowledged);
-            }
+                @Override
+                protected AcknowledgedResponse newResponse(boolean acknowledged) {
+                    return new AcknowledgedResponse(acknowledged);
+                }
 
-            @Override
-            public ClusterState execute(ClusterState currentState) {
-                return innerDelete(request, currentState);
-            }
-        });
+                @Override
+                public ClusterState execute(ClusterState currentState) {
+                    return innerDelete(request, currentState);
+                }
+            });
     }
 
     static ClusterState innerDelete(DeletePipelineRequest request, ClusterState currentState) {
@@ -162,8 +162,8 @@ public class IngestService implements ClusterStateApplier {
         }
         ClusterState.Builder newState = ClusterState.builder(currentState);
         newState.metaData(MetaData.builder(currentState.getMetaData())
-                .putCustom(IngestMetadata.TYPE, new IngestMetadata(pipelinesCopy))
-                .build());
+            .putCustom(IngestMetadata.TYPE, new IngestMetadata(pipelinesCopy))
+            .build());
         return newState.build();
     }
 
@@ -210,22 +210,22 @@ public class IngestService implements ClusterStateApplier {
      * Stores the specified pipeline definition in the request.
      */
     public void putPipeline(Map<DiscoveryNode, IngestInfo> ingestInfos, PutPipelineRequest request,
-        ActionListener<AcknowledgedResponse> listener) throws Exception {
-            // validates the pipeline and processor configuration before submitting a cluster update task:
-            validatePipeline(ingestInfos, request);
-            clusterService.submitStateUpdateTask("put-pipeline-" + request.getId(),
-                new AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
+                            ActionListener<AcknowledgedResponse> listener) throws Exception {
+        // validates the pipeline and processor configuration before submitting a cluster update task:
+        validatePipeline(ingestInfos, request);
+        clusterService.submitStateUpdateTask("put-pipeline-" + request.getId(),
+            new AckedClusterStateUpdateTask<AcknowledgedResponse>(request, listener) {
 
-                    @Override
-                    protected AcknowledgedResponse newResponse(boolean acknowledged) {
-                        return new AcknowledgedResponse(acknowledged);
-                    }
+                @Override
+                protected AcknowledgedResponse newResponse(boolean acknowledged) {
+                    return new AcknowledgedResponse(acknowledged);
+                }
 
-                    @Override
-                    public ClusterState execute(ClusterState currentState) {
-                        return innerPut(request, currentState);
-                    }
-                });
+                @Override
+                public ClusterState execute(ClusterState currentState) {
+                    return innerPut(request, currentState);
+                }
+            });
     }
 
     /**
@@ -293,12 +293,13 @@ public class IngestService implements ClusterStateApplier {
     /**
      * Recursive method to obtain all of the non-failure processors for given compoundProcessor. Since conditionals are implemented as
      * wrappers to the actual processor, always prefer the actual processor's metric over the conditional processor's metric.
+     *
      * @param compoundProcessor The compound processor to start walking the non-failure processors
-     * @param processorMetrics The list of {@link Processor} {@link IngestMetric} tuples.
+     * @param processorMetrics  The list of {@link Processor} {@link IngestMetric} tuples.
      * @return the processorMetrics for all non-failure processor that belong to the original compoundProcessor
      */
     private static List<Tuple<Processor, IngestMetric>> getProcessorMetrics(CompoundProcessor compoundProcessor,
-                                                                    List<Tuple<Processor, IngestMetric>> processorMetrics) {
+                                                                            List<Tuple<Processor, IngestMetric>> processorMetrics) {
         //only surface the top level non-failure processors, on-failure processor times will be included in the top level non-failure
         for (Tuple<Processor, IngestMetric> processorWithMetric : compoundProcessor.getProcessorsWithMetrics()) {
             Processor processor = processorWithMetric.v1();
@@ -331,7 +332,7 @@ public class IngestService implements ClusterStateApplier {
                 return type;
             }
         };
-        String description = "this is a place holder pipeline, because pipeline with id [" +  id + "] could not be loaded";
+        String description = "this is a place holder pipeline, because pipeline with id [" + id + "] could not be loaded";
         return new Pipeline(id, description, null, new CompoundProcessor(failureProcessor));
     }
 
@@ -375,8 +376,8 @@ public class IngestService implements ClusterStateApplier {
     }
 
     public void executeBulkRequest(Iterable<DocWriteRequest<?>> actionRequests,
-        BiConsumer<IndexRequest, Exception> itemFailureHandler, Consumer<Exception> completionHandler,
-        Consumer<IndexRequest> itemDroppedHandler) {
+                                   BiConsumer<IndexRequest, Exception> itemFailureHandler, Consumer<Exception> completionHandler,
+                                   Consumer<IndexRequest> itemDroppedHandler) {
 
         threadPool.executor(ThreadPool.Names.WRITE).execute(new AbstractRunnable() {
 
@@ -431,21 +432,21 @@ public class IngestService implements ClusterStateApplier {
     }
 
     //package private for testing
-    static String getProcessorName(Processor processor){
+    static String getProcessorName(Processor processor) {
         // conditionals are implemented as wrappers around the real processor, so get the real processor for the correct type for the name
-        if(processor instanceof ConditionalProcessor){
+        if (processor instanceof ConditionalProcessor) {
             processor = ((ConditionalProcessor) processor).getProcessor();
         }
         StringBuilder sb = new StringBuilder(5);
         sb.append(processor.getType());
 
-        if(processor instanceof PipelineProcessor){
+        if (processor instanceof PipelineProcessor) {
             String pipelineName = ((PipelineProcessor) processor).getPipelineName();
             sb.append(":");
             sb.append(pipelineName);
         }
         String tag = processor.getTag();
-        if(tag != null && !tag.isEmpty()){
+        if (tag != null && !tag.isEmpty()) {
             sb.append(":");
             sb.append(tag);
         }
@@ -462,7 +463,8 @@ public class IngestService implements ClusterStateApplier {
         // (e.g. the pipeline may have been removed while we're ingesting a document
         try {
             totalMetrics.preIngest();
-            String index = indexRequest.index();
+            String tenant = pipeline.getId().contains(".") ? pipeline.getId().substring(0, pipeline.getId().indexOf(".")) : null;
+            String index = tenant == null ? indexRequest.index() : indexRequest.index().substring(tenant.length() + 1);
             String type = indexRequest.type();
             String id = indexRequest.id();
             String routing = indexRequest.routing();
@@ -476,7 +478,9 @@ public class IngestService implements ClusterStateApplier {
                 Map<IngestDocument.MetaData, Object> metadataMap = ingestDocument.extractMetadata();
                 //it's fine to set all metadata fields all the time, as ingest document holds their starting values
                 //before ingestion, which might also get modified during ingestion.
-                indexRequest.index((String) metadataMap.get(IngestDocument.MetaData.INDEX));
+                String vIndex = (String) metadataMap.get(IngestDocument.MetaData.INDEX);
+                vIndex = tenant == null ? vIndex : vIndex.startsWith(tenant + ".") ? vIndex : tenant + "." + vIndex;
+                indexRequest.index(vIndex);
                 indexRequest.type((String) metadataMap.get(IngestDocument.MetaData.TYPE));
                 indexRequest.id((String) metadataMap.get(IngestDocument.MetaData.ID));
                 indexRequest.routing((String) metadataMap.get(IngestDocument.MetaData.ROUTING));
