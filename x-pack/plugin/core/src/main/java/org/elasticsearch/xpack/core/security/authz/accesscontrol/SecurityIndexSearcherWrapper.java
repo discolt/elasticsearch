@@ -289,7 +289,7 @@ public class SecurityIndexSearcherWrapper extends IndexSearcherWrapper {
                 // Always enforce mustache script lang:
                 script = new Script(script.getType(),
                         script.getType() == ScriptType.STORED ? null : "mustache", script.getIdOrCode(), script.getOptions(), params);
-                TemplateScript compiledTemplate = scriptService.compile(script, TemplateScript.CONTEXT).newInstance(script.getParams());
+                TemplateScript compiledTemplate = scriptService.     compile(script, TemplateScript.CONTEXT).newInstance(script.getParams());
                 return compiledTemplate.execute();
             } else {
                 return querySource;

@@ -479,7 +479,7 @@ public class IngestService implements ClusterStateApplier {
                 //it's fine to set all metadata fields all the time, as ingest document holds their starting values
                 //before ingestion, which might also get modified during ingestion.
                 String vIndex = (String) metadataMap.get(IngestDocument.MetaData.INDEX);
-                vIndex = tenant == null ? vIndex : vIndex.startsWith(tenant + ".") ? vIndex : tenant + "." + vIndex;
+                vIndex = tenant == null ? vIndex : tenantPadding(vIndex, tenant);
                 indexRequest.index(vIndex);
                 indexRequest.type((String) metadataMap.get(IngestDocument.MetaData.TYPE));
                 indexRequest.id((String) metadataMap.get(IngestDocument.MetaData.ID));
@@ -530,6 +530,17 @@ public class IngestService implements ClusterStateApplier {
         }
         this.pipelines = Collections.unmodifiableMap(pipelines);
         ExceptionsHelper.rethrowAndSuppress(exceptions);
+    }
+
+    private static String tenantPadding(String index, String tenant) {
+        if (index.startsWith(tenant + ".") || index.startsWith("<" + tenant + ".")) {
+            return index;
+        }
+        if (index.startsWith("+") || index.startsWith("-") || index.startsWith("<")) {
+            return index.charAt(0) + tenant + "." + index.substring(1);
+        } else {
+            return tenant + "." + index;
+        }
     }
 
 }
