@@ -34,8 +34,10 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.bulk.Retry;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.client.ParentTaskAssigningClient;
 import org.elasticsearch.cluster.ClusterState;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
 import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
@@ -98,6 +100,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
     private final ActionListener<BulkByScrollResponse> listener;
     private final Retry bulkRetry;
     private final ScrollableHitSource scrollSource;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
     private Optional<String> tenant;
 
     /**
@@ -128,9 +131,11 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         bulkRetry = new Retry(BackoffPolicy.wrap(backoffPolicy, worker::countBulkRetry), threadPool);
         scrollSource = buildScrollableResultSource(backoffPolicy);
         scriptApplier = Objects.requireNonNull(buildScriptApplier(), "script applier must not be null");
-        tenant = CollectionUtils.isEmpty(mainRequest.getSearchRequest().indices()) ?
+        indexNameExpressionResolver = new IndexNameExpressionResolver(client.settings());
+        String[] indices = indexNameExpressionResolver.concreteIndexNames(clusterState, IndicesOptions.LENIENT_EXPAND_OPEN, mainRequest.getSearchRequest().indices());
+        tenant = CollectionUtils.isEmpty(indices) ?
             Optional.empty() :
-            Optional.of(IndexSettings.INDEX_TENANT_SETTING.get(clusterState.metaData().index(mainRequest.getSearchRequest().indices()[0]).getSettings()));
+            Optional.of(IndexSettings.INDEX_TENANT_SETTING.get(clusterState.metaData().index(indices[0]).getSettings()));
         /*
          * Default to sorting by doc. We can't do this in the request itself because it is normal to *add* to the sorts rather than replace
          * them and if we add _doc as the first sort by default then sorts will never work.... So we add it here, only if there isn't
