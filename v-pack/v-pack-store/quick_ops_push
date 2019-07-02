@@ -1,3 +1,0 @@
-gradle jar
-cp ./build/distributions/v-pack-store-6.6.2.jar ~/elastic/release/6.6.2/store/es/plugins/v-pack-store/
-cp ./build/distributions/v-pack-store-6.6.2.jar ~/elastic/release/6.6.2/store/es-store/plugins/v-pack-store/
