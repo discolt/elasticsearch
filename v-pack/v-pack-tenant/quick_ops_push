@@ -1,0 +1,5 @@
+gradle jar
+cp ./build/distributions/v-pack-tenant-6.6.2.jar ~/elastic/release/6.6.2/master/plugins/v-pack-tenant/
+cp ./build/distributions/v-pack-tenant-6.6.2.jar ~/elastic/release/6.6.2/master2/plugins/v-pack-tenant/
+cp ./build/distributions/v-pack-tenant-6.6.2.jar ~/elastic/release/6.6.2/backup/plugins/v-pack-tenant/
+cp ./build/distributions/v-pack-tenant-6.6.2.jar ~/elastic/release/6.6.2/backup2/plugins/v-pack-tenant/

@@ -99,12 +99,12 @@ void addBuildDockerImage(final boolean oss) {
     dependsOn taskName("copy", oss, "Dockerfile")
     List<String> tags
     if (oss) {
-      tags = [ "docker.elastic.co/elasticsearch/elasticsearch-oss:${VersionProperties.elasticsearch}" ]
+      tags = [ "registry.cn-hangzhou.aliyuncs.com/venona/elasticsearch-oss:${VersionProperties.elasticsearch}" ]
     } else {
       tags = [
         "elasticsearch:${VersionProperties.elasticsearch}",
-        "docker.elastic.co/elasticsearch/elasticsearch:${VersionProperties.elasticsearch}",
-        "docker.elastic.co/elasticsearch/elasticsearch-full:${VersionProperties.elasticsearch}"
+        "registry.cn-hangzhou.aliyuncs.com/venona/elasticsearch:${VersionProperties.elasticsearch}",
+        "registry.cn-hangzhou.aliyuncs.com/venona/elasticsearch-full:${VersionProperties.elasticsearch}"
       ]
     }
     executable 'docker'

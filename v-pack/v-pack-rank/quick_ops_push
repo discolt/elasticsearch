@@ -1,0 +1,3 @@
+gradle jar
+cp ./build/distributions/v-pack-rank-6.6.2.jar ~/elastic/release/6.6.2/master/plugins/v-pack-rank/
+cp ./build/distributions/v-pack-rank-6.6.2.jar ~/elastic/release/6.6.2/master2/plugins/v-pack-rank/

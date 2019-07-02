@@ -1,0 +1,2 @@
+gradle jar
+cp ./build/distributions/v-pack-multimatch-6.4.0.jar ~/elastic/release/6.4.0/elasticsearch-6.4.0/plugins/v-pack-multimatch/

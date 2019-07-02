@@ -1,0 +1,7 @@
+grant {
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+};
+
+grant codeBase "${codebase.elasticsearch}" {
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+};

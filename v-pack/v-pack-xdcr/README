@@ -1,0 +1,53 @@
+
+- 开始同步索引
+```
+PUT /_xdcr/{repository}/{index}
+```
+
+- 停止索引级同步
+```
+DELETE /_xdcr/{repository}/{index}
+```
+
+- 开启集群级别同步
+```
+POST /_xdcr/{repository}
+```
+
+- 仅关闭集群巡检任务。
+```
+DELETE /_xdcr/{repository}
+```
+
+- 集群级别同步进阶
+```
+POST /_xdcr/{repository}?excludes=index-1
+
+// 停止所有索引同步
+excludes:* 
+
+// 停止index*索引同步
+excludes:index* 
+
+// 停止点号开头的索引同步
+excludes:.* 
+
+// 匹配到index-1,index-2，kibana的索引停止同步
+excludes:index-1,index-2,*kibana*
+
+```
+
+查看状态
+
+```
+GET _cat/xdcr
+greeting3 backup 0 494    494
+greeting3 backup 1 504    504
+greeting4 backup 0 99988  99988
+greeting4 backup 1 100010 100010
+greeting2 backup 0 -1     -1
+greeting2 backup 1 -1     -1
+greeting1 backup 0 56030  56030
+greeting1 backup 1 55968  55968
+```
+列名：索引名|远程集群|shard|本地maxSeqNo|远程MaxSeqNo
