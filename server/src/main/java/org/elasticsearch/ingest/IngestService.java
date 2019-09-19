@@ -462,7 +462,8 @@ public class IngestService implements ClusterStateApplier {
         // (e.g. the pipeline may have been removed while we're ingesting a document
         try {
             totalMetrics.preIngest();
-            String index = indexRequest.index();
+            String tenant = this.threadPool.getThreadContext().getTransient("__AppName");
+            String index = tenant == null ? indexRequest.index() : indexRequest.index().substring(tenant.length() + 1);
             String type = indexRequest.type();
             String id = indexRequest.id();
             String routing = indexRequest.routing();
@@ -476,7 +477,9 @@ public class IngestService implements ClusterStateApplier {
                 Map<IngestDocument.MetaData, Object> metadataMap = ingestDocument.extractMetadata();
                 //it's fine to set all metadata fields all the time, as ingest document holds their starting values
                 //before ingestion, which might also get modified during ingestion.
-                indexRequest.index((String) metadataMap.get(IngestDocument.MetaData.INDEX));
+                String vIndex = (String) metadataMap.get(IngestDocument.MetaData.INDEX);
+                vIndex = tenant == null ? vIndex : tenantPadding(vIndex, tenant);
+                indexRequest.index(vIndex);
                 indexRequest.type((String) metadataMap.get(IngestDocument.MetaData.TYPE));
                 indexRequest.id((String) metadataMap.get(IngestDocument.MetaData.ID));
                 indexRequest.routing((String) metadataMap.get(IngestDocument.MetaData.ROUTING));
@@ -526,6 +529,17 @@ public class IngestService implements ClusterStateApplier {
         }
         this.pipelines = Collections.unmodifiableMap(pipelines);
         ExceptionsHelper.rethrowAndSuppress(exceptions);
+    }
+
+    private static String tenantPadding(String index, String tenant) {
+        if (index.startsWith(tenant + ".") || index.startsWith("<" + tenant + ".")) {
+            return index;
+        }
+        if (index.startsWith("+") || index.startsWith("-") || index.startsWith("<")) {
+            return index.charAt(0) + tenant + "." + index.substring(1);
+        } else {
+            return tenant + "." + index;
+        }
     }
 
 }

@@ -364,7 +364,13 @@ public class MetaDataCreateIndexService {
                             // Allow templatesAliases to be templated by replacing a token with the
                             // name of the index that we are applying it to
                             if (aliasMetaData.alias().contains("{index}")) {
-                                String templatedAlias = aliasMetaData.alias().replace("{index}", request.index());
+//                                String templatedAlias = aliasMetaData.alias().replace("{index}", request.index());
+//                                aliasMetaData = AliasMetaData.newAliasMetaData(aliasMetaData, templatedAlias);
+                                // tenant custom
+                                String tenant = request.settings().get("index.tenant");
+                                String templatedAlias = tenant == null ?
+                                    aliasMetaData.alias().replace("{index}", request.index()):
+                                    aliasMetaData.alias().replace("{index}", request.index().substring(tenant.length()+1));
                                 aliasMetaData = AliasMetaData.newAliasMetaData(aliasMetaData, templatedAlias);
                             }
 

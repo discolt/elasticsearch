@@ -98,7 +98,7 @@ public class TransportUpdateByQueryAction extends HandledTransportAction<UpdateB
                 clusterState.nodes().getMinNodeVersion().onOrAfter(Version.V_6_7_0) == false,
                 // all nodes support sequence number powered optimistic concurrency control and we can use it
                 clusterState.nodes().getMinNodeVersion().onOrAfter(Version.V_6_7_0),
-                logger, client, threadPool, action, request, listener);
+                logger, client, threadPool, action, request, clusterState, listener);
             useSeqNoForCAS = clusterState.nodes().getMinNodeVersion().onOrAfter(Version.V_6_7_0);
         }
 

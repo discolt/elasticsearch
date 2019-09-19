@@ -270,7 +270,7 @@ public class TransportReindexAction extends HandledTransportAction<ReindexReques
                  * external versioning.
                  */
                 request.getDestination().versionType() != VersionType.INTERNAL,
-                false, logger, client, threadPool, action, request, listener);
+                false, logger, client, threadPool, action, request, clusterState, listener);
         }
 
         @Override

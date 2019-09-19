@@ -34,11 +34,17 @@ import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.bulk.Retry;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
+import org.elasticsearch.action.support.IndicesOptions;
 import org.elasticsearch.action.support.TransportAction;
 import org.elasticsearch.client.ParentTaskAssigningClient;
+import org.elasticsearch.cluster.ClusterState;
+import org.elasticsearch.cluster.metadata.IndexNameExpressionResolver;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
+import org.elasticsearch.common.util.CollectionUtils;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.VersionType;
 import org.elasticsearch.index.mapper.IdFieldMapper;
 import org.elasticsearch.index.mapper.IndexFieldMapper;
@@ -55,17 +61,7 @@ import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilder;
 import org.elasticsearch.threadpool.ThreadPool;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
@@ -106,6 +102,8 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
     private final ActionListener<BulkByScrollResponse> listener;
     private final Retry bulkRetry;
     private final ScrollableHitSource scrollSource;
+    private IndexNameExpressionResolver indexNameExpressionResolver;
+    private Optional<String> tenant;
 
     /**
      * This BiFunction is used to apply various changes depending of the Reindex action and  the search hit,
@@ -116,7 +114,8 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
 
     public AbstractAsyncBulkByScrollAction(BulkByScrollTask task, boolean needsSourceDocumentVersions,
                                            boolean needsSourceDocumentSeqNoAndPrimaryTerm, Logger logger, ParentTaskAssigningClient client,
-                                           ThreadPool threadPool, Action mainAction, Request mainRequest, 
+                                           ThreadPool threadPool, Action mainAction, Request mainRequest,
+                                           ClusterState clusterState,
                                            ActionListener<BulkByScrollResponse> listener) {
 
         this.task = task;
@@ -147,6 +146,12 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         }
         sourceBuilder.version(needsSourceDocumentVersions);
         sourceBuilder.seqNoAndPrimaryTerm(needsSourceDocumentSeqNoAndPrimaryTerm);
+
+        indexNameExpressionResolver = new IndexNameExpressionResolver(client.settings());
+        String[] indices = indexNameExpressionResolver.concreteIndexNames(clusterState, IndicesOptions.LENIENT_EXPAND_OPEN, mainRequest.getSearchRequest().indices());
+        tenant = CollectionUtils.isEmpty(indices) ?
+            Optional.empty() :
+            Optional.of(clusterState.metaData().index(indices[0]).getSettings().get("index.tenant"));
     }
 
     /**
@@ -203,7 +208,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         BulkRequest bulkRequest = new BulkRequest();
         for (ScrollableHitSource.Hit doc : docs) {
             if (accept(doc)) {
-                RequestWrapper<?> request = scriptApplier.apply(copyMetadata(buildRequest(doc), doc), doc);
+                RequestWrapper<?> request = scriptApplier.apply(copyMetadata(buildRequest(doc), doc), new TenantHit(doc, tenant));
                 if (request != null) {
                     bulkRequest.add(request.self());
                 }
@@ -910,6 +915,66 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         @Override
         public String toString() {
             return id.toLowerCase(Locale.ROOT);
+        }
+    }
+
+    private static class TenantHit implements ScrollableHitSource.Hit {
+        private final ScrollableHitSource.Hit delegate;
+        private final Optional<String> tenant;
+
+        public TenantHit(ScrollableHitSource.Hit delegate, Optional<String> tenant) {
+            this.delegate = delegate;
+            this.tenant = tenant;
+        }
+
+        @Override
+        public String getIndex() {
+            return tenant.isPresent() ? delegate.getIndex().substring(tenant.get().length() + 1) : delegate.getIndex();
+        }
+
+        @Override
+        public String getType() {
+            return delegate.getType();
+        }
+
+        @Override
+        public String getId() {
+            return delegate.getId();
+        }
+
+        @Override
+        public long getVersion() {
+            return delegate.getVersion();
+        }
+
+        @Override
+        public long getSeqNo() {
+            return delegate.getSeqNo();
+        }
+
+        @Override
+        public long getPrimaryTerm() {
+            return delegate.getPrimaryTerm();
+        }
+
+        @Override
+        public BytesReference getSource() {
+            return delegate.getSource();
+        }
+
+        @Override
+        public XContentType getXContentType() {
+            return delegate.getXContentType();
+        }
+
+        @Override
+        public String getParent() {
+            return delegate.getParent();
+        }
+
+        @Override
+        public String getRouting() {
+            return delegate.getRouting();
         }
     }
 }
