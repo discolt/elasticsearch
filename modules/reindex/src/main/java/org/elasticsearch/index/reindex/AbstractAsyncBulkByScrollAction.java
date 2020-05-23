@@ -21,6 +21,7 @@ package org.elasticsearch.index.reindex;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
+import org.elasticsearch.Tenant;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.DocWriteRequest;
 import org.elasticsearch.action.DocWriteResponse;
@@ -36,9 +37,12 @@ import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.TransportAction;
 import org.elasticsearch.client.ParentTaskAssigningClient;
+import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.bytes.BytesReference;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.util.concurrent.AbstractRunnable;
+import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.index.VersionType;
 import org.elasticsearch.index.mapper.IdFieldMapper;
 import org.elasticsearch.index.mapper.IndexFieldMapper;
@@ -106,6 +110,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
     private final ActionListener<BulkByScrollResponse> listener;
     private final Retry bulkRetry;
     private final ScrollableHitSource scrollSource;
+    private final String tenant;
 
     /**
      * This BiFunction is used to apply various changes depending of the Reindex action and  the search hit,
@@ -116,7 +121,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
 
     public AbstractAsyncBulkByScrollAction(BulkByScrollTask task, boolean needsSourceDocumentVersions,
                                            boolean needsSourceDocumentSeqNoAndPrimaryTerm, Logger logger, ParentTaskAssigningClient client,
-                                           ThreadPool threadPool, Action mainAction, Request mainRequest, 
+                                           ThreadPool threadPool, Action mainAction, Request mainRequest,
                                            ActionListener<BulkByScrollResponse> listener) {
 
         this.task = task;
@@ -147,6 +152,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         }
         sourceBuilder.version(needsSourceDocumentVersions);
         sourceBuilder.seqNoAndPrimaryTerm(needsSourceDocumentSeqNoAndPrimaryTerm);
+        tenant = task.getHeader(Tenant.CONTEXT_HEADER);
     }
 
     /**
@@ -158,7 +164,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         // The default script applier executes a no-op
         return (request, searchHit) -> request;
     }
-    
+
     /**
      * Build the {@link RequestWrapper} for a single search hit. This shouldn't handle
      * metadata or scripting. That will be handled by copyMetadata and
@@ -203,7 +209,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
         BulkRequest bulkRequest = new BulkRequest();
         for (ScrollableHitSource.Hit doc : docs) {
             if (accept(doc)) {
-                RequestWrapper<?> request = scriptApplier.apply(copyMetadata(buildRequest(doc), doc), doc);
+                RequestWrapper<?> request = scriptApplier.apply(copyMetadata(buildRequest(doc), doc), Strings.isEmpty(tenant)? doc : new HitTenantWrapper(doc, tenant));
                 if (request != null) {
                     bulkRequest.add(request.self());
                 }
@@ -214,14 +220,14 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
 
     protected ScrollableHitSource buildScrollableResultSource(BackoffPolicy backoffPolicy) {
         return new ClientScrollableHitSource(logger, backoffPolicy, threadPool, worker::countSearchRetry, this::finishHim, client,
-                mainRequest.getSearchRequest());
+            mainRequest.getSearchRequest());
     }
 
     /**
      * Build the response for reindex actions.
      */
     protected BulkByScrollResponse buildResponse(TimeValue took, List<BulkItemResponse.Failure> indexingFailures,
-                                                      List<SearchFailure> searchFailures, boolean timedOut) {
+                                                 List<SearchFailure> searchFailures, boolean timedOut) {
         return new BulkByScrollResponse(took, task.getStatus(), indexingFailures, searchFailures, timedOut);
     }
 
@@ -257,10 +263,10 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
             return;
         }
         if (    // If any of the shards failed that should abort the request.
-                (response.getFailures().size() > 0)
+            (response.getFailures().size() > 0)
                 // Timeouts aren't shard failures but we still need to pass them back to the user.
                 || response.isTimedOut()
-                ) {
+        ) {
             refreshAndFinish(emptyList(), response.getFailures(), response.isTimedOut());
             return;
         }
@@ -332,7 +338,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
     void sendBulkRequest(TimeValue thisBatchStartTime, BulkRequest request) {
         if (logger.isDebugEnabled()) {
             logger.debug("[{}]: sending [{}] entry, [{}] bulk request", task.getId(), request.requests().size(),
-                    new ByteSizeValue(request.estimatedSizeInBytes()));
+                new ByteSizeValue(request.estimatedSizeInBytes()));
         }
         if (task.isCancelled()) {
             logger.debug("[{}]: finishing early because the task was cancelled", task.getId());
@@ -480,13 +486,13 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
      * @param timedOut have any of the sub-requests timed out?
      */
     protected void finishHim(Exception failure, List<Failure> indexingFailures,
-            List<SearchFailure> searchFailures, boolean timedOut) {
+                             List<SearchFailure> searchFailures, boolean timedOut) {
         logger.debug("[{}]: finishing without any catastrophic failures", task.getId());
         scrollSource.close(() -> {
             if (failure == null) {
                 BulkByScrollResponse response = buildResponse(
-                        timeValueNanos(System.nanoTime() - startTime.get()),
-                        indexingFailures, searchFailures, timedOut);
+                    timeValueNanos(System.nanoTime() - startTime.get()),
+                    indexingFailures, searchFailures, timedOut);
                 listener.onResponse(response);
             } else {
                 listener.onFailure(failure);
@@ -851,18 +857,18 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
 
         protected RequestWrapper<?> scriptChangedOpType(RequestWrapper<?> request, OpType oldOpType, OpType newOpType) {
             switch (newOpType) {
-            case NOOP:
-                taskWorker.countNoop();
-                return null;
-            case DELETE:
-                RequestWrapper<DeleteRequest> delete = wrap(new DeleteRequest(request.getIndex(), request.getType(), request.getId()));
-                delete.setVersion(request.getVersion());
-                delete.setVersionType(VersionType.INTERNAL);
-                delete.setParent(request.getParent());
-                delete.setRouting(request.getRouting());
-                return delete;
-            default:
-                throw new IllegalArgumentException("Unsupported operation type change from [" + oldOpType + "] to [" + newOpType + "]");
+                case NOOP:
+                    taskWorker.countNoop();
+                    return null;
+                case DELETE:
+                    RequestWrapper<DeleteRequest> delete = wrap(new DeleteRequest(request.getIndex(), request.getType(), request.getId()));
+                    delete.setVersion(request.getVersion());
+                    delete.setVersionType(VersionType.INTERNAL);
+                    delete.setParent(request.getParent());
+                    delete.setRouting(request.getRouting());
+                    return delete;
+                default:
+                    throw new IllegalArgumentException("Unsupported operation type change from [" + oldOpType + "] to [" + newOpType + "]");
             }
         }
 
@@ -903,7 +909,7 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
                     return OpType.DELETE;
                 default:
                     throw new IllegalArgumentException("Operation type [" + lowerOpType + "] not allowed, only " +
-                            Arrays.toString(values()) + " are allowed");
+                        Arrays.toString(values()) + " are allowed");
             }
         }
 
@@ -912,4 +918,65 @@ public abstract class AbstractAsyncBulkByScrollAction<Request extends AbstractBu
             return id.toLowerCase(Locale.ROOT);
         }
     }
+
+    private static class HitTenantWrapper implements ScrollableHitSource.Hit {
+        private final ScrollableHitSource.Hit delegate;
+        private final String tenant;
+
+        public HitTenantWrapper(ScrollableHitSource.Hit delegate, String tenant) {
+            this.delegate = delegate;
+            this.tenant = tenant;
+        }
+
+        @Override
+        public String getIndex() {
+            return !Strings.isEmpty(tenant) ? delegate.getIndex().substring(tenant.length() + 1) : delegate.getIndex();
+        }
+
+        @Override
+        public String getType() {
+            return delegate.getType();
+        }
+
+        @Override
+        public String getId() {
+            return delegate.getId();
+        }
+
+        @Override
+        public long getVersion() {
+            return delegate.getVersion();
+        }
+
+        @Override
+        public long getSeqNo() {
+            return delegate.getSeqNo();
+        }
+
+        @Override
+        public long getPrimaryTerm() {
+            return delegate.getPrimaryTerm();
+        }
+
+        @Override
+        public BytesReference getSource() {
+            return delegate.getSource();
+        }
+
+        @Override
+        public XContentType getXContentType() {
+            return delegate.getXContentType();
+        }
+
+        @Override
+        public String getParent() {
+            return delegate.getParent();
+        }
+
+        @Override
+        public String getRouting() {
+            return delegate.getRouting();
+        }
+    }
 }
+

@@ -25,6 +25,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.ResourceAlreadyExistsException;
+import org.elasticsearch.Tenant;
 import org.elasticsearch.Version;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.admin.indices.alias.Alias;
@@ -116,16 +117,16 @@ public class MetaDataCreateIndexService {
     private final boolean forbidPrivateIndexSettings;
 
     public MetaDataCreateIndexService(
-            final Settings settings,
-            final ClusterService clusterService,
-            final IndicesService indicesService,
-            final AllocationService allocationService,
-            final AliasValidator aliasValidator,
-            final Environment env,
-            final IndexScopedSettings indexScopedSettings,
-            final ThreadPool threadPool,
-            final NamedXContentRegistry xContentRegistry,
-            final boolean forbidPrivateIndexSettings) {
+        final Settings settings,
+        final ClusterService clusterService,
+        final IndicesService indicesService,
+        final AllocationService allocationService,
+        final AliasValidator aliasValidator,
+        final Environment env,
+        final IndexScopedSettings indexScopedSettings,
+        final ThreadPool threadPool,
+        final NamedXContentRegistry xContentRegistry,
+        final boolean forbidPrivateIndexSettings) {
         this.settings = settings;
         this.clusterService = clusterService;
         this.indicesService = indicesService;
@@ -169,8 +170,8 @@ public class MetaDataCreateIndexService {
         }
         if (index.contains(":")) {
             deprecationLogger.deprecated("index or alias name [" + index +
-                            "] containing ':' is deprecated. Elasticsearch 7.x will read, " +
-                            "but not allow creation of new indices containing ':'");
+                "] containing ':' is deprecated. Elasticsearch 7.x will read, " +
+                "but not allow creation of new indices containing ':'");
         }
         if (index.charAt(0) == '_' || index.charAt(0) == '-' || index.charAt(0) == '+') {
             throw exceptionCtor.apply(index, "must not start with '_', '-', or '+'");
@@ -212,7 +213,7 @@ public class MetaDataCreateIndexService {
                     shardsAcknowledged -> {
                         if (shardsAcknowledged == false) {
                             logger.debug("[{}] index created, but the operation timed out while waiting for " +
-                                             "enough shards to be started.", request.index());
+                                "enough shards to be started.", request.index());
                         }
                         listener.onResponse(new CreateIndexClusterStateUpdateResponse(response.isAcknowledged(), shardsAcknowledged));
                     }, listener::onFailure);
@@ -229,18 +230,18 @@ public class MetaDataCreateIndexService {
         indexScopedSettings.validate(build, true); // we do validate here - index setting must be consistent
         request.settings(build);
         clusterService.submitStateUpdateTask(
-                "create-index [" + request.index() + "], cause [" + request.cause() + "]",
-                new IndexCreationTask(
-                        logger,
-                        allocationService,
-                        request,
-                        listener,
-                        indicesService,
-                        aliasValidator,
-                        xContentRegistry,
-                        settings,
-                        this::validate,
-                        indexScopedSettings));
+            "create-index [" + request.index() + "], cause [" + request.cause() + "]",
+            new IndexCreationTask(
+                logger,
+                allocationService,
+                request,
+                listener,
+                indicesService,
+                aliasValidator,
+                xContentRegistry,
+                settings,
+                this::validate,
+                indexScopedSettings));
     }
 
     interface IndexValidator {
@@ -295,7 +296,7 @@ public class MetaDataCreateIndexService {
                 // we only find a template when its an API call (a new index)
                 // find templates, highest order are better matching
                 List<IndexTemplateMetaData> templates =
-                        MetaDataIndexTemplateService.findTemplates(currentState.metaData(), request.index());
+                    MetaDataIndexTemplateService.findTemplates(currentState.metaData(), request.index());
 
                 Map<String, Map<String, String>> customs = new HashMap<>();
 
@@ -329,8 +330,8 @@ public class MetaDataCreateIndexService {
                                     cursor.key + " != " + templateMapping;
                                 Map.Entry<String, Map<String, Object>> mappingEntry = mappings.entrySet().iterator().next();
                                 templateMapping = Collections.singletonMap(
-                                        mappingEntry.getKey(),                       // reuse type name from the mapping
-                                        templateMapping.values().iterator().next()); // but actual mappings from the template
+                                    mappingEntry.getKey(),                       // reuse type name from the mapping
+                                    templateMapping.values().iterator().next()); // but actual mappings from the template
                                 XContentHelper.mergeDefaults(mappingEntry.getValue(), templateMapping);
                             } else if (template.mappings().size() == 1 && mappings.containsKey(MapperService.SINGLE_MAPPING_NAME)) {
                                 // Typed template with typeless mapping
@@ -340,8 +341,8 @@ public class MetaDataCreateIndexService {
                                     cursor.key + " != " + templateMapping;
                                 Map<String, Object> mapping = mappings.get(MapperService.SINGLE_MAPPING_NAME);
                                 templateMapping = Collections.singletonMap(
-                                        MapperService.SINGLE_MAPPING_NAME,           // make template mapping typeless
-                                        templateMapping.values().iterator().next());
+                                    MapperService.SINGLE_MAPPING_NAME,           // make template mapping typeless
+                                    templateMapping.values().iterator().next());
                                 XContentHelper.mergeDefaults(mapping, templateMapping);
                             } else {
                                 mappings.put(cursor.key,
@@ -364,7 +365,10 @@ public class MetaDataCreateIndexService {
                             // Allow templatesAliases to be templated by replacing a token with the
                             // name of the index that we are applying it to
                             if (aliasMetaData.alias().contains("{index}")) {
-                                String templatedAlias = aliasMetaData.alias().replace("{index}", request.index());
+                                String tenant = Tenant.INDEX_TENANT_SETTING.get(request.settings());
+                                String templatedAlias = tenant == null ?
+                                    aliasMetaData.alias().replace("{index}", request.index()):
+                                    aliasMetaData.alias().replace("{index}", request.index().substring(tenant.length()+1));
                                 aliasMetaData = AliasMetaData.newAliasMetaData(aliasMetaData, templatedAlias);
                             }
 
@@ -384,9 +388,9 @@ public class MetaDataCreateIndexService {
                 indexSettingsBuilder.put(request.settings());
                 if (indexSettingsBuilder.get(SETTING_NUMBER_OF_SHARDS) == null) {
                     deprecationLogger.deprecated("the default number of shards will change from [5] to [1] in 7.0.0; "
-                            + "if you wish to continue using the default of [5] shards, "
-                            + "you must manage this on the create index request or with an index template");
-                    indexSettingsBuilder.put(SETTING_NUMBER_OF_SHARDS, settings.getAsInt(SETTING_NUMBER_OF_SHARDS, 5));
+                        + "if you wish to continue using the default of [5] shards, "
+                        + "you must manage this on the create index request or with an index template");
+                    indexSettingsBuilder.put(SETTING_NUMBER_OF_SHARDS, settings.getAsInt(SETTING_NUMBER_OF_SHARDS, 1));
                 }
                 if (indexSettingsBuilder.get(SETTING_NUMBER_OF_REPLICAS) == null) {
                     indexSettingsBuilder.put(SETTING_NUMBER_OF_REPLICAS, settings.getAsInt(SETTING_NUMBER_OF_REPLICAS, 1));
@@ -425,14 +429,14 @@ public class MetaDataCreateIndexService {
                 if (recoverFromIndex != null) {
                     assert request.resizeType() != null;
                     prepareResizeIndexSettings(
-                            currentState,
-                            mappings.keySet(),
-                            indexSettingsBuilder,
-                            recoverFromIndex,
-                            request.index(),
-                            request.resizeType(),
-                            request.copySettings(),
-                            indexScopedSettings);
+                        currentState,
+                        mappings.keySet(),
+                        indexSettingsBuilder,
+                        recoverFromIndex,
+                        request.index(),
+                        request.resizeType(),
+                        request.copySettings(),
+                        indexScopedSettings);
                 }
                 final Settings actualIndexSettings = indexSettingsBuilder.build();
 
@@ -651,7 +655,7 @@ public class MetaDataCreateIndexService {
             Path resolvedPath = PathUtils.get(new Path[]{env.sharedDataFile()}, customPath);
             if (resolvedPath == null) {
                 validationErrors.add("custom path [" + customPath +
-                                     "] is not a sub-path of path.shared_data [" + env.sharedDataFile() + "]");
+                    "] is not a sub-path of path.shared_data [" + env.sharedDataFile() + "]");
             }
         }
         if (forbidPrivateIndexSettings) {
@@ -672,8 +676,8 @@ public class MetaDataCreateIndexService {
      * @return the list of nodes at least one instance of the source index shards are allocated
      */
     static List<String> validateShrinkIndex(ClusterState state, String sourceIndex,
-                                        Set<String> targetIndexMappingsTypes, String targetIndexName,
-                                        Settings targetIndexSettings) {
+                                            Set<String> targetIndexMappingsTypes, String targetIndexName,
+                                            Settings targetIndexSettings) {
         IndexMetaData sourceMetaData = validateResize(state, sourceIndex, targetIndexMappingsTypes, targetIndexName, targetIndexSettings);
         assert IndexMetaData.INDEX_NUMBER_OF_SHARDS_SETTING.exists(targetIndexSettings);
         IndexMetaData.selectShrinkShards(0, sourceMetaData, IndexMetaData.INDEX_NUMBER_OF_SHARDS_SETTING.get(targetIndexSettings));
@@ -719,8 +723,8 @@ public class MetaDataCreateIndexService {
     }
 
     static IndexMetaData validateResize(ClusterState state, String sourceIndex,
-                                           Set<String> targetIndexMappingsTypes, String targetIndexName,
-                                           Settings targetIndexSettings) {
+                                        Set<String> targetIndexMappingsTypes, String targetIndexName,
+                                        Settings targetIndexSettings) {
         if (state.metaData().hasIndex(targetIndexName)) {
             throw new ResourceAlreadyExistsException(state.metaData().index(targetIndexName).getIndex());
         }
@@ -749,14 +753,14 @@ public class MetaDataCreateIndexService {
     }
 
     static void prepareResizeIndexSettings(
-            final ClusterState currentState,
-            final Set<String> mappingKeys,
-            final Settings.Builder indexSettingsBuilder,
-            final Index resizeSourceIndex,
-            final String resizeIntoName,
-            final ResizeType type,
-            final boolean copySettings,
-            final IndexScopedSettings indexScopedSettings) {
+        final ClusterState currentState,
+        final Set<String> mappingKeys,
+        final Settings.Builder indexSettingsBuilder,
+        final Index resizeSourceIndex,
+        final String resizeIntoName,
+        final ResizeType type,
+        final boolean copySettings,
+        final IndexScopedSettings indexScopedSettings) {
 
         // we use "i.r.a.initial_recovery" rather than "i.r.a.require|include" since we want the replica to allocate right away
         // once we are allocated.
@@ -798,9 +802,9 @@ public class MetaDataCreateIndexService {
             }
         } else {
             final Predicate<String> sourceSettingsPredicate =
-                    (s) -> (s.startsWith("index.similarity.") || s.startsWith("index.analysis.") || s.startsWith("index.sort.") ||
-                            s.equals("index.mapping.single_type") || s.equals("index.soft_deletes.enabled"))
-                            && indexSettingsBuilder.keys().contains(s) == false;
+                (s) -> (s.startsWith("index.similarity.") || s.startsWith("index.analysis.") || s.startsWith("index.sort.") ||
+                    s.equals("index.mapping.single_type") || s.equals("index.soft_deletes.enabled"))
+                    && indexSettingsBuilder.keys().contains(s) == false;
             builder.put(sourceMetaData.getSettings().filter(sourceSettingsPredicate));
         }
 
@@ -813,3 +817,4 @@ public class MetaDataCreateIndexService {
             .put(IndexMetaData.INDEX_RESIZE_SOURCE_UUID.getKey(), resizeSourceIndex.getUUID());
     }
 }
+

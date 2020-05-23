@@ -24,6 +24,7 @@ import org.apache.logging.log4j.Logger;
 import org.elasticsearch.cluster.routing.RecoverySource;
 import org.elasticsearch.cluster.routing.RoutingNode;
 import org.elasticsearch.cluster.routing.ShardRouting;
+import org.elasticsearch.cluster.routing.ShardRoutingState;
 import org.elasticsearch.cluster.routing.UnassignedInfo;
 import org.elasticsearch.cluster.routing.allocation.RoutingAllocation;
 import org.elasticsearch.common.settings.ClusterSettings;
@@ -90,15 +91,15 @@ public class ThrottlingAllocationDecider extends AllocationDecider {
         concurrentOutgoingRecoveries = CLUSTER_ROUTING_ALLOCATION_NODE_CONCURRENT_OUTGOING_RECOVERIES_SETTING.get(settings);
 
         clusterSettings.addSettingsUpdateConsumer(CLUSTER_ROUTING_ALLOCATION_NODE_INITIAL_PRIMARIES_RECOVERIES_SETTING,
-                this::setPrimariesInitialRecoveries);
+            this::setPrimariesInitialRecoveries);
         clusterSettings.addSettingsUpdateConsumer(CLUSTER_ROUTING_ALLOCATION_NODE_CONCURRENT_INCOMING_RECOVERIES_SETTING,
-                this::setConcurrentIncomingRecoverries);
+            this::setConcurrentIncomingRecoverries);
         clusterSettings.addSettingsUpdateConsumer(CLUSTER_ROUTING_ALLOCATION_NODE_CONCURRENT_OUTGOING_RECOVERIES_SETTING,
-                this::setConcurrentOutgoingRecoverries);
+            this::setConcurrentOutgoingRecoverries);
 
         logger.debug("using node_concurrent_outgoing_recoveries [{}], node_concurrent_incoming_recoveries [{}], " +
-                        "node_initial_primaries_recoveries [{}]",
-                concurrentOutgoingRecoveries, concurrentIncomingRecoveries, primariesInitialRecoveries);
+                "node_initial_primaries_recoveries [{}]",
+            concurrentOutgoingRecoveries, concurrentIncomingRecoveries, primariesInitialRecoveries);
     }
 
     private void setConcurrentIncomingRecoverries(int concurrentIncomingRecoveries) {
@@ -120,10 +121,10 @@ public class ThrottlingAllocationDecider extends AllocationDecider {
             // count *just the primaries* currently doing recovery on the node and check against primariesInitialRecoveries
 
             int primariesInRecovery = 0;
-            for (ShardRouting shard : node) {
+            for (ShardRouting shard : node.shardsWithState(ShardRoutingState.INITIALIZING)) {
                 // when a primary shard is INITIALIZING, it can be because of *initial recovery* or *relocation from another node*
                 // we only count initial recoveries here, so we need to make sure that relocating node is null
-                if (shard.initializing() && shard.primary() && shard.relocatingNodeId() == null) {
+                if (shard.primary() && shard.relocatingNodeId() == null) {
                     primariesInRecovery++;
                 }
             }
@@ -158,7 +159,7 @@ public class ThrottlingAllocationDecider extends AllocationDecider {
                 if (primaryNodeOutRecoveries >= concurrentOutgoingRecoveries) {
                     return allocation.decision(THROTTLE, NAME,
                         "reached the limit of outgoing shard recoveries [%d] on the node [%s] which holds the primary, " +
-                        "cluster setting [%s=%d] (can also be set via [%s])",
+                            "cluster setting [%s=%d] (can also be set via [%s])",
                         primaryNodeOutRecoveries, primaryShard.currentNodeId(),
                         CLUSTER_ROUTING_ALLOCATION_NODE_CONCURRENT_OUTGOING_RECOVERIES_SETTING.getKey(),
                         concurrentOutgoingRecoveries,
@@ -209,3 +210,4 @@ public class ThrottlingAllocationDecider extends AllocationDecider {
         return initializingShard;
     }
 }
+

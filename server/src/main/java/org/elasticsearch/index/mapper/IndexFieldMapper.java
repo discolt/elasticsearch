@@ -25,6 +25,7 @@ import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MultiTermQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
+import org.elasticsearch.Tenant;
 import org.elasticsearch.Version;
 import org.elasticsearch.common.Nullable;
 import org.elasticsearch.common.lucene.Lucene;
@@ -40,6 +41,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+
+import static org.elasticsearch.Tenant.INDEX_TENANT_SETTING;
+import static org.elasticsearch.Tenant.maybeRewrite;
 
 
 public class IndexFieldMapper extends MetadataFieldMapper {
@@ -133,6 +137,7 @@ public class IndexFieldMapper extends MetadataFieldMapper {
          */
         @Override
         public Query termQuery(Object value, @Nullable QueryShardContext context) {
+            value = maybeRewrite(value, context);
             if (isSameIndex(value, context.getFullyQualifiedIndex().getName())) {
                 return Queries.newMatchAllQuery();
             } else {
@@ -147,6 +152,7 @@ public class IndexFieldMapper extends MetadataFieldMapper {
                 return super.termsQuery(values, context);
             }
             for (Object value : values) {
+                value = maybeRewrite(value, context);
                 if (isSameIndex(value, context.getFullyQualifiedIndex().getName())) {
                     // No need to OR these clauses - we can only logically be
                     // running in the context of just one of these index names.
@@ -162,6 +168,7 @@ public class IndexFieldMapper extends MetadataFieldMapper {
         public Query prefixQuery(String value,
                                  @Nullable MultiTermQuery.RewriteMethod method,
                                  QueryShardContext context) {
+            value = maybeRewrite(value, context);
             String indexName = context.getFullyQualifiedIndex().getName();
             if (indexName.startsWith(value)) {
                 return Queries.newMatchAllQuery();
@@ -174,6 +181,7 @@ public class IndexFieldMapper extends MetadataFieldMapper {
         @Override
         public Query regexpQuery(String value, int flags, int maxDeterminizedStates,
                                  MultiTermQuery.RewriteMethod method, QueryShardContext context) {
+            value = maybeRewrite(value, context);
             String indexName = context.getFullyQualifiedIndex().getName();
             Pattern pattern = Regex.compile(value, Regex.flagsToString(flags));
 
@@ -189,6 +197,7 @@ public class IndexFieldMapper extends MetadataFieldMapper {
         public Query wildcardQuery(String value,
                                    @Nullable MultiTermQuery.RewriteMethod method,
                                    QueryShardContext context) {
+            value = maybeRewrite(value, context);
             String indexName = context.getFullyQualifiedIndex().getName();
             if (isSameIndex(value, indexName)) {
                 return Queries.newMatchAllQuery();

@@ -649,6 +649,10 @@ public class BulkRequest extends ActionRequest implements CompositeIndicesReques
         return "requests[" + requests.size() + "], indices[" + Strings.collectionToDelimitedString(indices, ", ") + "]";
     }
 
+    public Set<String> indices() {
+        return indices;
+    }
+
     private void applyGlobalMandatoryParameters(DocWriteRequest<?> request) {
         request.index(valueOrDefault(request.index(), globalIndex));
         request.type(valueOrDefault(request.type(), globalType));

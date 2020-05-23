@@ -194,7 +194,7 @@ public class IndexCreationTaskTests extends ESTestCase {
                 + "if you wish to continue using the default of [5] shards, "
                 + "you must manage this on the create index request or with an index template");
 
-        assertThat(result.getMetaData().index("test").getSettings().get(SETTING_NUMBER_OF_SHARDS), equalTo("5"));
+        assertThat(result.getMetaData().index("test").getSettings().get(SETTING_NUMBER_OF_SHARDS), equalTo("1"));
     }
 
     public void testSettingsFromClusterState() throws Exception {
