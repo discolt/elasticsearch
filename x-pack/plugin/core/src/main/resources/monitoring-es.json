@@ -127,6 +127,9 @@
             "index": {
               "type": "keyword"
             },
+            "tenant": {
+              "type": "keyword"
+            },
             "primaries": {
               "properties": {
                 "docs": {

@@ -5,6 +5,7 @@
  */
 package org.elasticsearch.xpack.monitoring.collector.indices;
 
+import org.elasticsearch.Tenant;
 import org.elasticsearch.action.admin.indices.stats.CommonStats;
 import org.elasticsearch.action.admin.indices.stats.IndexStats;
 import org.elasticsearch.cluster.health.ClusterIndexHealth;
@@ -66,6 +67,7 @@ public class IndexStatsMonitoringDoc extends FilteredMonitoringDoc {
         {
             builder.field("index", metaData.getIndex().getName());
             builder.field("uuid", metaData.getIndexUUID());
+            builder.field("tenant", Tenant.INDEX_TENANT_SETTING.get(metaData.getSettings()));
             builder.field("created", metaData.getCreationDate());
             builder.field("status", health.getStatus().name().toLowerCase(Locale.ROOT));
 
@@ -119,6 +121,7 @@ public class IndexStatsMonitoringDoc extends FilteredMonitoringDoc {
     public static final Set<String> XCONTENT_FILTERS =
         Sets.newHashSet("index_stats.index",
                         "index_stats.uuid",
+                        "index_stats.tenant",
                         "index_stats.created",
                         "index_stats.status",
                         "index_stats.shards.total",
