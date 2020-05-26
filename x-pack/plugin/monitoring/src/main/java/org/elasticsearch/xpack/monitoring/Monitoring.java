@@ -5,6 +5,7 @@
  */
 package org.elasticsearch.xpack.monitoring;
 
+import org.apache.lucene.util.SetOnce;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.client.Client;
@@ -14,17 +15,14 @@ import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.inject.util.Providers;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
-import org.elasticsearch.common.settings.ClusterSettings;
-import org.elasticsearch.common.settings.IndexScopedSettings;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.settings.SettingsFilter;
+import org.elasticsearch.common.settings.*;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
 import org.elasticsearch.license.LicenseService;
 import org.elasticsearch.license.XPackLicenseState;
 import org.elasticsearch.plugins.ActionPlugin;
+import org.elasticsearch.plugins.MonitoringPlugin;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.rest.RestHandler;
@@ -40,6 +38,7 @@ import org.elasticsearch.xpack.core.ssl.SSLService;
 import org.elasticsearch.xpack.monitoring.action.TransportMonitoringBulkAction;
 import org.elasticsearch.xpack.monitoring.cleaner.CleanerService;
 import org.elasticsearch.xpack.monitoring.collector.Collector;
+import org.elasticsearch.xpack.monitoring.collector.CollectorWrapper;
 import org.elasticsearch.xpack.monitoring.collector.ccr.StatsCollector;
 import org.elasticsearch.xpack.monitoring.collector.cluster.ClusterStatsCollector;
 import org.elasticsearch.xpack.monitoring.collector.indices.IndexRecoveryCollector;
@@ -53,15 +52,7 @@ import org.elasticsearch.xpack.monitoring.exporter.http.HttpExporter;
 import org.elasticsearch.xpack.monitoring.exporter.local.LocalExporter;
 import org.elasticsearch.xpack.monitoring.rest.action.RestMonitoringBulkAction;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 
 import static java.util.Collections.emptyList;
@@ -74,14 +65,14 @@ import static org.elasticsearch.common.settings.Setting.boolSetting;
  * - transport clients: only action/transport actions are binded
  * - tribe clients: everything is disables by default but can be enabled per tribe cluster
  */
-public class Monitoring extends Plugin implements ActionPlugin {
+public class Monitoring extends Plugin implements ActionPlugin, MonitoringPlugin {
 
     /**
      * The ability to automatically cleanup ".watcher_history*" indices while also cleaning up Monitoring indices.
      */
     public static final Setting<Boolean> CLEAN_WATCHER_HISTORY = boolSetting("xpack.watcher.history.cleaner_service.enabled",
-                                                                             true,
-                                                                             Setting.Property.Dynamic, Setting.Property.NodeScope);
+        true,
+        Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     protected final Settings settings;
     private final boolean enabled;
@@ -96,9 +87,17 @@ public class Monitoring extends Plugin implements ActionPlugin {
     }
 
     // overridable by tests
-    protected SSLService getSslService() { return XPackPlugin.getSharedSslService(); }
-    protected XPackLicenseState getLicenseState() { return XPackPlugin.getSharedLicenseState(); }
-    protected LicenseService getLicenseService() { return XPackPlugin.getSharedLicenseService(); }
+    protected SSLService getSslService() {
+        return XPackPlugin.getSharedSslService();
+    }
+
+    protected XPackLicenseState getLicenseState() {
+        return XPackPlugin.getSharedLicenseState();
+    }
+
+    protected LicenseService getLicenseService() {
+        return XPackPlugin.getSharedLicenseService();
+    }
 
     boolean isEnabled() {
         return enabled;
@@ -121,6 +120,16 @@ public class Monitoring extends Plugin implements ActionPlugin {
         return modules;
     }
 
+    private Set<Collector> extenalCollectors = new HashSet<>();
+    @Override
+    public void onCollectors(List<CollectorSpec> collectorSpecs, Client client, ClusterService clusterService) {
+        Set<Collector> extenalCollectors = new HashSet<>();
+        for (CollectorSpec collector : collectorSpecs) {
+            extenalCollectors.add(new CollectorWrapper(collector, client, clusterService));
+        }
+        this.extenalCollectors.addAll(extenalCollectors);
+    }
+
     @Override
     public Collection<Object> createComponents(Client client, ClusterService clusterService, ThreadPool threadPool,
                                                ResourceWatcherService resourceWatcherService, ScriptService scriptService,
@@ -129,7 +138,6 @@ public class Monitoring extends Plugin implements ActionPlugin {
         if (enabled == false || tribeNode) {
             return Collections.emptyList();
         }
-
         final ClusterSettings clusterSettings = clusterService.getClusterSettings();
         final CleanerService cleanerService = new CleanerService(settings, clusterSettings, threadPool, getLicenseState());
         final SSLService dynamicSSLService = getSslService().createDynamicSSLService();
@@ -148,11 +156,12 @@ public class Monitoring extends Plugin implements ActionPlugin {
         collectors.add(new IndexRecoveryCollector(clusterService, getLicenseState(), client));
         collectors.add(new JobStatsCollector(settings, clusterService, getLicenseState(), client));
         collectors.add(new StatsCollector(settings, clusterService, getLicenseState(), client));
-
+        collectors.addAll(extenalCollectors);
         final MonitoringService monitoringService = new MonitoringService(settings, clusterService, threadPool, collectors, exporters);
 
         return Arrays.asList(monitoringService, exporters, cleanerService);
     }
+
 
     @Override
     public List<ActionHandler<? extends ActionRequest, ? extends ActionResponse>> getActions() {
@@ -164,8 +173,8 @@ public class Monitoring extends Plugin implements ActionPlugin {
 
     @Override
     public List<RestHandler> getRestHandlers(Settings settings, RestController restController, ClusterSettings clusterSettings,
-            IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter, IndexNameExpressionResolver indexNameExpressionResolver,
-            Supplier<DiscoveryNodes> nodesInCluster) {
+                                             IndexScopedSettings indexScopedSettings, SettingsFilter settingsFilter, IndexNameExpressionResolver indexNameExpressionResolver,
+                                             Supplier<DiscoveryNodes> nodesInCluster) {
         if (false == enabled || tribeNode) {
             return emptyList();
         }
@@ -198,3 +207,4 @@ public class Monitoring extends Plugin implements ActionPlugin {
         return Collections.unmodifiableList(Arrays.asList(exportersKey + "*.auth.*", exportersKey + "*.ssl.*"));
     }
 }
+

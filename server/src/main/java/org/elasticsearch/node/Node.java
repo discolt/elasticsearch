@@ -120,22 +120,7 @@ import org.elasticsearch.persistent.PersistentTasksClusterService;
 import org.elasticsearch.persistent.PersistentTasksExecutor;
 import org.elasticsearch.persistent.PersistentTasksExecutorRegistry;
 import org.elasticsearch.persistent.PersistentTasksService;
-import org.elasticsearch.plugins.ActionPlugin;
-import org.elasticsearch.plugins.AnalysisPlugin;
-import org.elasticsearch.plugins.ClusterPlugin;
-import org.elasticsearch.plugins.DiscoveryPlugin;
-import org.elasticsearch.plugins.EnginePlugin;
-import org.elasticsearch.plugins.IndexStorePlugin;
-import org.elasticsearch.plugins.IngestPlugin;
-import org.elasticsearch.plugins.MapperPlugin;
-import org.elasticsearch.plugins.MetaDataUpgrader;
-import org.elasticsearch.plugins.NetworkPlugin;
-import org.elasticsearch.plugins.PersistentTaskPlugin;
-import org.elasticsearch.plugins.Plugin;
-import org.elasticsearch.plugins.PluginsService;
-import org.elasticsearch.plugins.RepositoryPlugin;
-import org.elasticsearch.plugins.ScriptPlugin;
-import org.elasticsearch.plugins.SearchPlugin;
+import org.elasticsearch.plugins.*;
 import org.elasticsearch.repositories.RepositoriesModule;
 import org.elasticsearch.rest.RestController;
 import org.elasticsearch.script.ScriptModule;
@@ -467,6 +452,15 @@ public abstract class Node implements Closeable {
                     threadPool,
                     xContentRegistry,
                     forbidPrivateIndexSettings);
+
+            List<MonitoringPlugin.CollectorSpec> collectors = new ArrayList();
+            List<MonitoringPlugin> monitoringPlugins = pluginsService.filterPlugins(MonitoringPlugin.class);
+            monitoringPlugins.stream().forEach(
+                p-> collectors.addAll(p.getCollectors())
+            );
+            monitoringPlugins.stream().forEach(
+                p-> p.onCollectors(collectors, client, clusterService)
+            );
 
             Collection<Object> pluginComponents = pluginsService.filterPlugins(Plugin.class).stream()
                 .flatMap(p -> p.createComponents(client, clusterService, threadPool, resourceWatcherService,
