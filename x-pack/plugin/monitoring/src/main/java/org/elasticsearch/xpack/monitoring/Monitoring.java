@@ -16,6 +16,7 @@ import org.elasticsearch.common.inject.Module;
 import org.elasticsearch.common.inject.util.Providers;
 import org.elasticsearch.common.io.stream.NamedWriteableRegistry;
 import org.elasticsearch.common.settings.*;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.env.NodeEnvironment;
@@ -188,6 +189,7 @@ public class Monitoring extends Plugin implements ActionPlugin, MonitoringPlugin
         settings.add(CLEAN_WATCHER_HISTORY);
         settings.add(MonitoringService.ENABLED);
         settings.add(MonitoringService.ELASTICSEARCH_COLLECTION_ENABLED);
+        settings.add(MonitoringService.COLLECTION_EXCLOUDE);
         settings.add(MonitoringService.INTERVAL);
         settings.add(Collector.INDICES);
         settings.add(ClusterStatsCollector.CLUSTER_STATS_TIMEOUT);
@@ -206,5 +208,6 @@ public class Monitoring extends Plugin implements ActionPlugin, MonitoringPlugin
         final String exportersKey = "xpack.monitoring.exporters.";
         return Collections.unmodifiableList(Arrays.asList(exportersKey + "*.auth.*", exportersKey + "*.ssl.*"));
     }
+
 }
 

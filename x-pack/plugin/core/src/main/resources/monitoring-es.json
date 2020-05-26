@@ -878,6 +878,16 @@
             }
           }
         },
+        "cost_stats": {
+          "properties": {
+            "cost": {
+              "type": "long"
+            },
+            "tenant": {
+              "type": "keyword"
+            }
+          }
+        },
         "job_stats": {
           "properties": {
             "job_id": {

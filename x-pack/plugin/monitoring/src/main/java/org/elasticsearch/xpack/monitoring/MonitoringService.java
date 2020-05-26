@@ -24,10 +24,7 @@ import org.elasticsearch.xpack.monitoring.collector.Collector;
 import org.elasticsearch.xpack.monitoring.exporter.Exporters;
 
 import java.io.Closeable;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,7 +52,7 @@ public class MonitoringService extends AbstractLifecycleComponent {
 
             deprecationLogger.deprecated(
                 "Setting [xpack.monitoring.collection.interval] to [-1] has been deprecated as the way to disable collection. Use " +
-                "[xpack.monitoring.collection.enabled] set to [false] instead."
+                    "[xpack.monitoring.collection.enabled] set to [false] instead."
             );
         }
     }
@@ -68,42 +65,50 @@ public class MonitoringService extends AbstractLifecycleComponent {
     /*
      * Dynamically controls enabling or disabling the collection of Monitoring data only from Elasticsearch.
      * <p>
-      * This should only be used while transitioning to Metricbeat-based data collection for Elasticsearch with
-      * {@linkplain #ENABLED} set to {@code true}. By setting this to {@code false} and that value to {@code true},
-      * Kibana, Logstash, Beats, and APM Server can all continue to report their stats through this cluster until they
-      * are transitioned to being monitored by Metricbeat as well.
-      */
+     * This should only be used while transitioning to Metricbeat-based data collection for Elasticsearch with
+     * {@linkplain #ENABLED} set to {@code true}. By setting this to {@code false} and that value to {@code true},
+     * Kibana, Logstash, Beats, and APM Server can all continue to report their stats through this cluster until they
+     * are transitioned to being monitored by Metricbeat as well.
+     */
     public static final Setting<Boolean> ELASTICSEARCH_COLLECTION_ENABLED =
-            Setting.boolSetting("xpack.monitoring.elasticsearch.collection.enabled", true,
-                                Setting.Property.Dynamic, Setting.Property.NodeScope);
+        Setting.boolSetting("xpack.monitoring.elasticsearch.collection.enabled", true,
+            Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     /**
      * Dynamically controls enabling or disabling the collection of Monitoring data from Elasticsearch as well as other products
      * in the stack.
      */
     public static final Setting<Boolean> ENABLED =
-            Setting.boolSetting("xpack.monitoring.collection.enabled", false,
-                                Setting.Property.Dynamic, Setting.Property.NodeScope);
+        Setting.boolSetting("xpack.monitoring.collection.enabled", false,
+            Setting.Property.Dynamic, Setting.Property.NodeScope);
+
+    public static final Setting<String> COLLECTION_EXCLOUDE =
+        Setting.simpleString("xpack.monitoring.collection.excloude",
+            Setting.Property.Dynamic, Setting.Property.NodeScope);
 
     /**
      * Sampling interval between two collections (default to 10s)
      */
     public static final Setting<TimeValue> INTERVAL = new Setting<>("xpack.monitoring.collection.interval", "10s",
-            (s) -> {
-                TimeValue value = TimeValue.parseTimeValue(s, null, "xpack.monitoring.collection.interval");
-                if (TimeValue.MINUS_ONE.equals(value) || value.millis() >= MIN_INTERVAL.millis()) {
-                    deprecateMinusOne(value);
+        (s) -> {
+            TimeValue value = TimeValue.parseTimeValue(s, null, "xpack.monitoring.collection.interval");
+            if (TimeValue.MINUS_ONE.equals(value) || value.millis() >= MIN_INTERVAL.millis()) {
+                deprecateMinusOne(value);
 
-                    return value;
-                }
-                throw new IllegalArgumentException("Failed to parse monitoring interval [" + s + "], value must be >= " + MIN_INTERVAL);
-            },
-            Setting.Property.Dynamic, Setting.Property.NodeScope);
+                return value;
+            }
+            throw new IllegalArgumentException("Failed to parse monitoring interval [" + s + "], value must be >= " + MIN_INTERVAL);
+        },
+        Setting.Property.Dynamic, Setting.Property.NodeScope);
 
-    /** State of the monitoring service, either started or stopped **/
+    /**
+     * State of the monitoring service, either started or stopped
+     **/
     private final AtomicBoolean started = new AtomicBoolean(false);
 
-    /** Task in charge of collecting and exporting monitoring data **/
+    /**
+     * Task in charge of collecting and exporting monitoring data
+     **/
     private final MonitoringExecution monitor = new MonitoringExecution();
 
     private final ClusterService clusterService;
@@ -115,6 +120,7 @@ public class MonitoringService extends AbstractLifecycleComponent {
     private volatile boolean enabled;
     private volatile TimeValue interval;
     private volatile ThreadPool.Cancellable scheduler;
+    private volatile Collection<String> excloude;
 
     MonitoringService(Settings settings, ClusterService clusterService, ThreadPool threadPool,
                       Set<Collector> collectors, Exporters exporters) {
@@ -125,11 +131,12 @@ public class MonitoringService extends AbstractLifecycleComponent {
         this.elasticsearchCollectionEnabled = ELASTICSEARCH_COLLECTION_ENABLED.get(settings);
         this.enabled = ENABLED.get(settings);
         this.interval = INTERVAL.get(settings);
+        this.excloude = excloudes(COLLECTION_EXCLOUDE.get(settings));
 
-        clusterService.getClusterSettings()
-            .addSettingsUpdateConsumer(ELASTICSEARCH_COLLECTION_ENABLED, this::setElasticsearchCollectionEnabled);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(ELASTICSEARCH_COLLECTION_ENABLED, this::setElasticsearchCollectionEnabled);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(ENABLED, this::setMonitoringActive);
         clusterService.getClusterSettings().addSettingsUpdateConsumer(INTERVAL, this::setInterval);
+        clusterService.getClusterSettings().addSettingsUpdateConsumer(COLLECTION_EXCLOUDE, this::setCollectionExcloude);
     }
 
     void setElasticsearchCollectionEnabled(final boolean enabled) {
@@ -147,15 +154,19 @@ public class MonitoringService extends AbstractLifecycleComponent {
         scheduleExecution();
     }
 
+    void setCollectionExcloude(final String excloude) {
+        this.excloude = excloudes(excloude);
+    }
+
     public TimeValue getInterval() {
         return interval;
     }
 
     public boolean isMonitoringActive() {
         return isStarted()
-                && enabled
-                && interval != null
-                && interval.millis() >= MIN_INTERVAL.millis();
+            && enabled
+            && interval != null
+            && interval.millis() >= MIN_INTERVAL.millis();
     }
 
     boolean isElasticsearchCollectionEnabled() {
@@ -172,6 +183,11 @@ public class MonitoringService extends AbstractLifecycleComponent {
 
     boolean isStarted() {
         return started.get();
+    }
+
+    private Collection<String> excloudes(String value) {
+        return (value == null || value.trim().length() == 0) ? Collections.EMPTY_SET :
+            Arrays.asList(value.split("\\s?,\\s?"));
     }
 
     @Override
@@ -262,10 +278,15 @@ public class MonitoringService extends AbstractLifecycleComponent {
 
                     final Collection<MonitoringDoc> results = new ArrayList<>();
                     for (Collector collector : collectors) {
+
                         if (isStarted() == false) {
                             // Do not collect more data if the the monitoring service is stopping
                             // otherwise some collectors might just fail.
                             return;
+                        }
+
+                        if (excloude.contains(collector.name())) {
+                            continue;
                         }
 
                         try {
@@ -275,7 +296,7 @@ public class MonitoringService extends AbstractLifecycleComponent {
                             }
                         } catch (Exception e) {
                             logger.warn((Supplier<?>) () ->
-                                    new ParameterizedMessage("monitoring collector [{}] failed to collect data", collector.name()), e);
+                                new ParameterizedMessage("monitoring collector [{}] failed to collect data", collector.name()), e);
                         }
                     }
                     if (shouldScheduleExecution()) {

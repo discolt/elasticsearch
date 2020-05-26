@@ -1,0 +1,4 @@
+gradle clean jar -Dbuild.snapshot=false -Dlicense.key=LICENSE.txt
+cp ./server/build/distributions/elasticsearch-6.8.6.jar ~/elastic/elasticsearch-6.8.6/lib
+cp ./x-pack/plugin/monitoring/build/distributions/x-pack-monitoring-6.8.6.jar ~/elastic/elasticsearch-6.8.6/modules/x-pack-monitoring/
+cp ./x-pack/plugin/core/build/distributions/x-pack-core-6.8.6.jar  ~/elastic/elasticsearch-6.8.6/modules/x-pack-core
